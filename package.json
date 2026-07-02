@@ -1,0 +1,41 @@
+{
+  "name": "volta-agent-tool",
+  "private": true,
+  "version": "0.1.0",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=22.12.0 <23",
+    "npm": ">=10"
+  },
+  "scripts": {
+    "build": "node build-hosting.mjs",
+    "test": "node --test \"tests/*.test.js\"",
+    "audit": "npm audit --audit-level=moderate",
+    "validate:firebase-auth-profiles": "node validate-firebase-auth-profiles.mjs",
+    "validate:firebase-auth-claims": "node validate-firebase-auth-claims.mjs",
+    "plan:firebase-auth-migration": "node generate-firebase-auth-migration-plan.mjs",
+    "verify:firebase-auth-migration-plan": "node verify-firebase-auth-migration-plan.mjs",
+    "verify:secrets": "node verify-secrets.mjs",
+    "verify:vendor": "node verify-vendor.mjs",
+    "verify:security": "node build-hosting.mjs && node verify-security.mjs",
+    "verify:rules": "node verify-firestore-rules.mjs",
+    "verify:production-readiness": "node verify-production-readiness.mjs",
+    "verify:local": "npm test && npm run audit && npm run verify:secrets && npm run verify:vendor && npm run validate:firebase-auth-profiles && npm run validate:firebase-auth-claims && npm run verify:security && npm run verify:csp && npm run verify:map && npm run verify:editor",
+    "verify:csp": "node build-hosting.mjs && node verify-csp.mjs",
+    "verify:map": "node build-hosting.mjs && node verify-map.mjs",
+    "verify:editor": "node build-hosting.mjs && node verify-editor.mjs",
+    "verify:deploy": "npm run build && npm run audit && npm run verify:secrets && npm run verify:vendor && npm run verify:rules && npm run verify:production-readiness && node verify-security.mjs --production",
+    "verify:all": "npm test && npm run audit && npm run verify:secrets && npm run verify:vendor && npm run verify:rules && npm run validate:firebase-auth-profiles && npm run validate:firebase-auth-claims && npm run --silent plan:firebase-auth-migration -- --out .verify-artifacts/firebase-auth-migration-plan.json && npm run verify:firebase-auth-migration-plan && npm run verify:security && npm run verify:csp && npm run verify:map && npm run verify:editor",
+    "deploy:production": "npm run verify:deploy && firebase deploy --only hosting,firestore:rules",
+    "serve": "npm run build && npx http-server dist -c-1"
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^5.0.1",
+    "firebase": "^12.15.0",
+    "http-server": "^14.1.1",
+    "puppeteer-core": "^25.2.1"
+  },
+  "dependencies": {
+    "three": "0.128.0"
+  }
+}

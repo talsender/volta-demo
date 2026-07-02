@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VOLTA · Orbital Solar Deployment Grid</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- ===== ATMOSPHERE LAYERS ===== -->
+  <div class="space-bg" aria-hidden="true"></div>
+  <canvas id="starfield" class="starfield" aria-hidden="true"></canvas>
+  <div class="hud-grid" aria-hidden="true"></div>
+  <div class="scanlines" aria-hidden="true"></div>
+  <div class="vignette" aria-hidden="true"></div>
+  <div class="grain" aria-hidden="true"></div>
+
+  <!-- ===== AGENT LOGIN GATE ===== -->
+  <div id="login-gate" class="login-gate hidden">
+    <div class="login-card">
+      <div class="login-title">VOLTA · כניסה</div>
+      <div class="login-sub">הזן אימייל וסיסמה</div>
+      <input id="login-email" class="login-input" type="email"
+        placeholder="אימייל" autocomplete="username">
+      <input id="login-password" class="login-input" type="password"
+        placeholder="סיסמה" autocomplete="current-password">
+      <button id="login-btn" class="login-btn">כניסה</button>
+      <div id="login-error" class="login-error"></div>
+      <button id="bootstrap-btn" class="manager-access hidden">אתחול ראשוני (יצירת מנהל)</button>
+    </div>
+  </div>
+
+  <div id="app">
+    <!-- ===== TOP TELEMETRY BAR ===== -->
+    <header class="app-header">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">
+          <span class="brand-ring"></span>
+          <span class="brand-core"></span>
+        </div>
+        <div class="brand-text">
+          <div class="logo">VOLTA <span>SOLAR</span></div>
+          <div class="subtitle">כלי נציגים · בדיקת יישובים וכשירות גג</div>
+        </div>
+      </div>
+      <div class="telemetry">
+        <div class="tele-item"><span class="led led-green"></span><span class="tele-k">SAT-LINK</span><span class="tele-v">ONLINE</span></div>
+        <div class="tele-item"><span class="tele-k">UTC</span><span class="tele-v" id="sys-time">--:--:--</span></div>
+        <div class="tele-item tele-coord"><span class="tele-k">GRID</span><span class="tele-v" id="sys-coord">31.0°N · 34.8°E</span></div>
+      </div>
+      <div class="agent-bar">
+        <span class="agent-name" id="agent-name">—</span>
+        <span class="agent-role-badge hidden" id="agent-role-badge"></span>
+        <button class="agent-link" id="my-requests-btn">📋 הבקשות שלי<span class="bar-badge hidden" id="myreq-badge"></span></button>
+        <button class="agent-link hidden" id="admin-open-btn">🛠️ פאנל ניהול<span class="bar-badge hidden" id="admin-badge"></span></button>
+        <button class="agent-link" id="logout-btn">יציאה</button>
+      </div>
+    </header>
+
+    <div class="console-layout">
+      <!-- ===== GLOBE / RECON PANEL ===== -->
+      <aside class="globe-panel">
+        <div class="panel-tag">COVERAGE MAP</div>
+        <div class="globe-stage">
+          <span class="corner tl"></span><span class="corner tr"></span>
+          <span class="corner bl"></span><span class="corner br"></span>
+          <canvas id="globe" class="globe-canvas"></canvas>
+          <div id="target-hud" class="target-hud" aria-hidden="true">
+            <span class="th-state">TARGET</span>
+            <span class="th-name" id="th-name">—</span>
+          </div>
+          <div class="globe-caption" id="globe-caption">COVERAGE SCAN · ISR SECTOR</div>
+        </div>
+        <div class="readouts">
+          <div class="readout"><span class="r-k">SECTOR</span><span class="r-v" id="r-orbit">ISRAEL</span></div>
+          <div class="readout"><span class="r-k">NODES</span><span class="r-v" id="r-nodes">—</span></div>
+          <div class="readout"><span class="r-k">SIGNAL</span>
+            <span class="r-bars"><i></i><i></i><i></i><i></i><i></i></span>
+          </div>
+          <div class="readout"><span class="r-k">FLUX</span><span class="r-v amber" id="r-flux">1361 W/m²</span></div>
+        </div>
+      </aside>
+
+      <!-- ===== MAIN CONSOLE ===== -->
+      <main class="console-panel">
+        <nav class="tabs">
+          <button class="tab active" data-tab="settlement"><span class="tab-code">01</span>📍 בדיקת יישוב</button>
+          <button class="tab" data-tab="wizard"><span class="tab-code">02</span>🏠 כשירות גג</button>
+          <button class="tab" data-tab="kb"><span class="tab-code">03</span>📚 מאגר ידע</button>
+          <button class="tab" data-tab="offerings"><span class="tab-code">04</span>💰 מסלולים ומחירים</button>
+        </nav>
+
+        <!-- Tab 1: Settlement Check -->
+        <section id="tab-settlement" class="tab-content active">
+          <div class="module-head">
+            <span class="module-id">MODULE&nbsp;01</span>
+            <span class="module-name">SETTLEMENT&nbsp;SCAN</span>
+            <span class="module-stat"><span class="led led-cyan"></span>READY</span>
+          </div>
+          <div class="search-label">הקלד שם יישוב של הלקוח לסריקת קואורדינטות:</div>
+          <div class="search-box">
+            <span class="search-prefix" aria-hidden="true">&gt;_</span>
+            <input id="settlement-input" class="search-input" type="text"
+              placeholder="לדוגמה: רמת השרון, מגדל העמק..." autocomplete="off">
+            <span class="search-scan" aria-hidden="true"></span>
+          </div>
+          <div id="suggestions" class="suggestions hidden"></div>
+          <div id="settlement-result" class="result-area"></div>
+          <div id="data-status" class="data-status"></div>
+        </section>
+
+        <!-- Tab 2: Qualification Wizard -->
+        <section id="tab-wizard" class="tab-content hidden">
+          <div class="module-head">
+            <span class="module-id">MODULE&nbsp;02</span>
+            <span class="module-name">ROOF&nbsp;QUALIFICATION</span>
+            <span class="module-stat"><span class="led led-amber"></span>DIAGNOSTIC</span>
+          </div>
+          <div id="wizard-container"></div>
+        </section>
+
+        <!-- Tab 3: Knowledge Base -->
+        <section id="tab-kb" class="tab-content hidden">
+          <div class="module-head">
+            <span class="module-id">MODULE&nbsp;03</span>
+            <span class="module-name">KNOWLEDGE&nbsp;BASE</span>
+            <span class="module-stat"><span class="led led-cyan"></span>FIELD&nbsp;DATA</span>
+          </div>
+          <div class="search-label">מה אפשר להתקין? חפש סוג גג / תשתית / מצב (לדוגמה: רעף ספרדי, איסכורית, אסבסט, קרקע):</div>
+          <div class="search-box">
+            <span class="search-prefix" aria-hidden="true">&gt;_</span>
+            <input id="kb-input" class="search-input" type="text"
+              placeholder="לדוגמה: פרגולה, סנטף, צפון, טופס 4..." autocomplete="off">
+          </div>
+          <div id="kb-list" class="kb-list"></div>
+        </section>
+
+        <!-- Tab 4: Offerings / Pricing -->
+        <section id="tab-offerings" class="tab-content hidden">
+          <div class="module-head">
+            <span class="module-id">MODULE&nbsp;04</span>
+            <span class="module-name">PRICING&nbsp;&amp;&nbsp;PLANS</span>
+            <span class="module-stat"><span class="led led-amber"></span>SALES&nbsp;DATA</span>
+          </div>
+          <div class="search-label">מסלולי מכירה, מחירים וליסינג — לפי הערות השטח של הנציגים:</div>
+          <div id="offerings-list" class="offerings-list"></div>
+        </section>
+      </main>
+    </div>
+
+    <!-- ===== STATUS FOOTER ===== -->
+    <footer class="hud-footer">
+      <span class="foot-item"><span class="led led-green"></span>SYSTEM NOMINAL</span>
+      <span class="foot-sep">//</span>
+      <span class="foot-item">VOLTA ORBITAL DEPLOYMENT GRID v2.6</span>
+      <span class="foot-sep">//</span>
+      <span class="foot-item foot-mono" id="foot-seq">SEQ 0x0000</span>
+
+      <span class="foot-credit" title="Designed &amp; engineered by Tal Sender"
+            aria-label="Designed and engineered by Tal Sender">
+        <span class="fc-mark" aria-hidden="true">TS</span>
+        <span class="fc-text">
+          <span class="fc-label">ENGINEERED BY</span>
+          <span class="fc-name">TAL SENDER</span>
+        </span>
+      </span>
+    </footer>
+  </div>
+
+  <!-- ===== PERSISTENT COMPASS ROSE (bottom-left, always available) ===== -->
+  <div id="compass-dock" class="compass-dock">
+    <div class="dock-head">
+      <span class="dock-title"><span class="led led-cyan"></span>שושנת רוחות · כיוון גג</span>
+      <button class="dock-toggle" id="dock-toggle" data-app-action="toggle-compass-dock" title="כווץ / הרחב">▾</button>
+    </div>
+    <div class="dock-body" id="dock-body">
+      <canvas id="dock-compass" class="dock-canvas" width="200" height="200"></canvas>
+      <div class="dock-dirs">
+        <button class="dir-btn dock-dir-btn" data-app-action="dock-compass-set" data-deg="0">צ</button>
+        <button class="dir-btn dock-dir-btn" data-app-action="dock-compass-set" data-deg="45">צ-מז</button>
+        <button class="dir-btn dock-dir-btn" data-app-action="dock-compass-set" data-deg="90">מז</button>
+        <button class="dir-btn dock-dir-btn" data-app-action="dock-compass-set" data-deg="135">ד-מז</button>
+        <button class="dir-btn dock-dir-btn" data-app-action="dock-compass-set" data-deg="180">ד</button>
+        <button class="dir-btn dock-dir-btn" data-app-action="dock-compass-set" data-deg="225">ד-מע</button>
+        <button class="dir-btn dock-dir-btn" data-app-action="dock-compass-set" data-deg="270">מע</button>
+        <button class="dir-btn dock-dir-btn" data-app-action="dock-compass-set" data-deg="315">צ-מע</button>
+      </div>
+      <div class="dock-verdict ok" id="dock-verdict">☀ דרום · תפוקה מיטבית</div>
+    </div>
+  </div>
+
+  <!-- ===== EXCEPTION REQUEST MODAL ===== -->
+  <div id="req-modal" class="req-modal hidden">
+    <div class="req-card">
+      <div class="req-title">בקשת חריגה ממנהל</div>
+      <div class="req-context" id="req-context"></div>
+      <div class="req-status-select hidden" id="req-status-select">
+        <div class="req-status-label">הבקשה שלי:</div>
+        <div class="req-status-btns">
+          <button type="button" class="req-status-btn" data-status="מתקינים" id="req-status-yes">✅ מתקינים</button>
+          <button type="button" class="req-status-btn" data-status="לא מתקינים" id="req-status-no">❌ לא מתקינים</button>
+        </div>
+      </div>
+      <textarea id="req-reason" class="req-reason" rows="4"
+        maxlength="2000"
+        placeholder="נמק מדוע אתה מבקש חריגה..."></textarea>
+      <div id="req-error" class="req-error"></div>
+      <div class="req-actions">
+        <button id="req-send" class="btn primary">שלח בקשה</button>
+        <button id="req-cancel" class="btn reset">ביטול</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== MY REQUESTS ===== -->
+  <div id="my-req-modal" class="req-modal hidden">
+    <div class="req-card wide">
+      <div class="req-title">הבקשות שלי</div>
+      <div id="my-req-list" class="my-req-list"></div>
+      <div class="req-actions">
+        <button id="my-req-close" class="btn reset">סגור</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== MANAGER PANEL ===== -->
+  <div id="admin-modal" class="req-modal hidden">
+    <div class="req-card wide">
+      <div class="req-title">פאנל מנהל</div>
+      <nav class="admin-tabs">
+        <button class="admin-tab active" data-atab="requests">בקשות</button>
+        <button class="admin-tab" data-atab="agents">נציגים</button>
+        <button class="admin-tab" data-atab="roof">הגדרות גג</button>
+        <button class="admin-tab" data-atab="audit">Audit</button>
+      </nav>
+      <div id="admin-requests" class="admin-pane"></div>
+      <div id="admin-agents" class="admin-pane hidden"></div>
+      <div id="admin-roof" class="admin-pane hidden"></div>
+      <div id="admin-audit" class="admin-pane hidden"></div>
+      <div class="req-actions">
+        <button id="admin-close" class="btn reset">סגור</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== PERSISTENT 3D HOUSE DOCK (bottom-right, large) ===== -->
+  <div id="sim-dock" class="sim-dock">
+    <div class="dock-head">
+      <span class="dock-title"><span class="led led-cyan"></span>סימולציית בית · 3D</span>
+      <span class="dock-actions">
+        <button class="dock-toggle dock-edit" id="se-open-btn" title="הגדל ועריכה: הוספת גג, מכשולים ודלת">⛶ הגדל ועריכה</button>
+        <button class="dock-toggle" data-app-action="recenter-sim" title="מרכז מחדש">⊕</button>
+        <button class="dock-toggle" id="sim-dock-toggle" data-app-action="toggle-sim-dock" title="כווץ / הרחב">▾</button>
+      </span>
+    </div>
+    <div class="dock-body">
+      <div class="sim-dock-stage">
+        <span class="corner tl"></span><span class="corner tr"></span>
+        <span class="corner bl"></span><span class="corner br"></span>
+        <canvas id="sim-dock-canvas" class="sim-dock-canvas"></canvas>
+        <div id="sim-dock-msg" class="sim-dock-msg"></div>
+      </div>
+      <div class="sim-dock-hint">↻ גרור לסיבוב · גלגלת לזום</div>
+    </div>
+  </div>
+
+  <!-- ===== MANAGER SETTINGS MODAL HOST ===== -->
+  <div id="settings-modal" class="settings-modal" aria-hidden="true"></div>
+
+  <!-- Firebase SDK (modular) exposed as window.firebase for the data layer -->
+  <script src="firebase-bootstrap.js"></script>
+
+  <script src="vendor/three/three.min.js"></script>
+  <script src="vendor/three/OrbitControls.js"></script>
+  <script src="settlement-coords.js"></script>
+  <script src="israel-geo.js"></script>
+  <script src="globe.js"></script>
+  <script src="compass.js"></script>
+  <script src="shading.js"></script>
+  <script src="sim-state.js"></script>
+  <script src="sim.js"></script>
+  <script src="config.js"></script>
+  <script src="requests.js"></script>
+  <script src="audit.js"></script>
+  <script src="auth.js"></script>
+  <script src="firebase.js"></script>
+  <script src="roof-store.js"></script>
+  <script src="settlements-data.js"></script>
+  <script src="knowledge-base.js"></script>
+  <script src="settlements.js"></script>
+  <script src="wizard.js"></script>
+  <script src="admin.js"></script>
+  <script src="offerings-data.js"></script>
+  <script src="offerings.js"></script>
+  <script src="app.js"></script>
+  <script src="roof-layout.js"></script>
+  <script src="plan-editor.js"></script>
+  <script src="sim-editor.js"></script>
+  <script src="settings.js"></script>
+  <script src="credit.js"></script>
+</body>
+</html>
