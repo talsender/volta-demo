@@ -425,8 +425,10 @@
     let seq = 0;
     setInterval(() => {
       if (timeEl) {
-        const d = new Date();
-        timeEl.textContent = d.toISOString().substr(11, 8);
+        // Israel local time (Asia/Jerusalem handles IDT/IST DST automatically).
+        timeEl.textContent = new Date().toLocaleTimeString('en-GB', {
+          timeZone: 'Asia/Jerusalem', hour12: false,
+        });
       }
       if (seqEl) {
         seq = (seq + 7 + Math.floor(Math.random() * 5)) & 0xffff;
