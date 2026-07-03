@@ -22,7 +22,7 @@ const DEFAULT_ROOF_CONFIG = {
   totalSizeThresholds: { good: 70, borderline: 60 }, // m², vs sum of all materials
   tilesAgeWarning: 25,                               // years
   // Disposable demo bootstrap password (used to create the first manager).
-  managerPassword: 'demo',
+  managerPassword: '123654yk',
 
   materials: [
     {
