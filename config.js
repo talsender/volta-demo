@@ -8,12 +8,12 @@ const CONFIG = {
   // Demo Firebase project — paste values from FIREBASE-SETUP.md.
   // Never use the real production project here.
   FIREBASE_CONFIG: {
-    apiKey: 'PASTE_DEMO_API_KEY',
-    authDomain: 'PASTE_DEMO.firebaseapp.com',
-    projectId: 'PASTE_DEMO_PROJECT_ID',
-    storageBucket: 'PASTE_DEMO.firebasestorage.app',
-    messagingSenderId: 'PASTE_DEMO_SENDER_ID',
-    appId: 'PASTE_DEMO_APP_ID',
+    apiKey: 'AIzaSyD9YvLoZVkNRv6Ze5rxlWJhRR4MfMUnTsw',
+    authDomain: 'volta-demo-92912.firebaseapp.com',
+    projectId: 'volta-demo-92912',
+    storageBucket: 'volta-demo-92912.firebasestorage.app',
+    messagingSenderId: '696332545009',
+    appId: '1:696332545009:web:e6d94176056ad112d1f250',
   },
 };
 
