@@ -114,6 +114,8 @@ function initAppDelegates() {
       openSettlementRequest();
     } else if (action === 'reset-wizard') {
       resetWizard();
+    } else if (action === 'wizard-back') {
+      wizardBack();
     } else if (action === 'wizard-answer') {
       wizardAnswer(parseInt(actionEl.dataset.optionIndex, 10));
     } else if (action === 'wizard-toggle-roof') {
@@ -198,6 +200,7 @@ function renderWizard() {
   </div>`;
 
   html += `<div class="btn-row">
+    ${Wizard.canBack() ? '<button class="btn secondary" data-app-action="wizard-back">→ חזור שלב</button>' : ''}
     <button class="btn reset" data-app-action="reset-wizard">🔄 התחל מחדש</button>
   </div>`;
 
@@ -498,6 +501,10 @@ function resetWizard() {
   renderWizard();
 }
 
+function wizardBack() {
+  if (Wizard.back()) renderWizard();
+}
+
 function renderWizardResult() {
   const s = Wizard.getState();
 
@@ -547,6 +554,7 @@ function renderWizardResult() {
       ${offeringsHtml}
       <div class="btn-row">
         <button class="btn primary">📅 תאם שיחת מומחה</button>
+        <button class="btn secondary" data-app-action="wizard-back">→ חזור שלב</button>
         <button class="btn reset" data-app-action="reset-wizard">🔄 בדיקה חדשה</button>
       </div>
     </div>`;
@@ -560,6 +568,7 @@ function renderWizardResult() {
       ${offeringsHtml}
       <div class="btn-row">
         <button class="btn primary">📅 תאם שיחת מומחה</button>
+        <button class="btn secondary" data-app-action="wizard-back">→ חזור שלב</button>
         <button class="btn reset" data-app-action="reset-wizard">🔄 בדיקה חדשה</button>
       </div>
     </div>`;
@@ -579,6 +588,7 @@ function renderWizardResult() {
         <button class="btn secondary">📅 קבע פולואפ לתאריך</button>
         <button class="btn vsd">↗ העבר ל-VSD</button>
         <button class="btn ghost" data-app-action="open-roof-request">🚩 בקש חריגה ממנהל</button>
+        <button class="btn secondary" data-app-action="wizard-back">→ חזור שלב</button>
         <button class="btn reset" data-app-action="reset-wizard">🔄 בדיקה חדשה</button>
       </div>
     </div>`;
@@ -593,6 +603,7 @@ function renderWizardResult() {
       ${flagsHtml}
       <div class="btn-row">
         <button class="btn ghost" data-app-action="open-roof-request">🚩 בקש חריגה ממנהל</button>
+        <button class="btn secondary" data-app-action="wizard-back">→ חזור שלב</button>
         <button class="btn reset" data-app-action="reset-wizard">🔄 בדיקה חדשה</button>
       </div>
     </div>`;
@@ -610,7 +621,8 @@ function renderWizardResult() {
     ${flagsHtml}
     <div class="btn-row">
       <button class="btn ghost" data-app-action="open-roof-request">🚩 בקש חריגה ממנהל</button>
-      <button class="btn reset" data-app-action="reset-wizard">🔄 בדיקה חדשה</button>
+      <button class="btn secondary" data-app-action="wizard-back">→ חזור שלב</button>
+        <button class="btn reset" data-app-action="reset-wizard">🔄 בדיקה חדשה</button>
     </div>
   </div>`;
 }

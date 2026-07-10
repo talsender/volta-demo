@@ -228,7 +228,23 @@ const Wizard = (() => {
     return QUESTIONS.find(q => q.id === id);
   }
 
+  // Undo history: a deep snapshot is pushed before every committing action
+  // (answer / confirm), so back() restores everything that action changed —
+  // answers, flags, outcome, selections — in one pop.
+  let history = [];
+  function snapshot() {
+    history.push(JSON.parse(JSON.stringify(state)));
+    if (history.length > 60) history.shift();
+  }
+  function back() {
+    if (!history.length) return false;
+    state = history.pop();
+    return true;
+  }
+  function canBack() { return history.length > 0; }
+
   function reset() {
+    history = [];
     state = { step: 0, answers: [], flags: [], outcome: null, stopReason: '', stopScript: '', escalateNote: '', followUpNote: '', selectedRoofTypes: [],
       materialSizes: [], orientationAz: 180, shading: 'none', selectedObstacles: [], propertyType: 'private' };
   }
@@ -261,6 +277,7 @@ const Wizard = (() => {
   // is the single source of truth. This just records the selection and advances.
   function confirmRoofTypes() {
     if (state.selectedRoofTypes.length === 0) return { done: false, error: 'בחר לפחות סוג גג אחד' };
+    snapshot();
     const selected = state.selectedRoofTypes;
     const labels = selected.map(t => t.label).join(' + ');
     state.answers.push({
@@ -288,6 +305,7 @@ const Wizard = (() => {
   }
 
   function answer(option, sizeValue) {
+    snapshot();
     const q = currentQuestion();
     const label = option.label || sizeValue + ' מ"ר';
     let value = option.value || sizeValue;
@@ -354,6 +372,7 @@ const Wizard = (() => {
   // Submit per-material sizes: [{ materialId, size }]. Runs evaluateRoof (the
   // single source of truth) and maps its outcome onto the wizard state machine.
   function answerMaterialSizes(sizes) {
+    snapshot();
     const r = evaluateRoof(sizes, cfg());
     state.materialSizes = sizes.filter(s => (parseInt(s.size) || 0) > 0);
     const recap = r.perMaterial.map(p => `${p.label} ${p.size}מ"ר`).join(' + ');
@@ -399,6 +418,7 @@ const Wizard = (() => {
   // Confirm the obstacle selection: derive severity (single source of truth),
   // apply the same flag/escalate behavior the old shading buttons had.
   function confirmObstacles() {
+    snapshot();
     const q = getQuestion('shading');
     const types = state.selectedObstacles.slice();
     const severity = (typeof window !== 'undefined' && window.deriveShadingSeverity)
@@ -446,7 +466,7 @@ const Wizard = (() => {
     };
   }
 
-  return { reset, currentQuestion, currentFlow, answer, getState, toggleRoofType, confirmRoofTypes, toggleObstacle, confirmObstacles, selectedMaterials, answerMaterialSizes, getSimInputs };
+  return { reset, back, canBack, currentQuestion, currentFlow, answer, getState, toggleRoofType, confirmRoofTypes, toggleObstacle, confirmObstacles, selectedMaterials, answerMaterialSizes, getSimInputs };
 })();
 
 if (typeof module !== 'undefined' && module.exports) {
