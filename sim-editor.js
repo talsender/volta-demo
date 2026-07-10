@@ -41,6 +41,9 @@ const SimEditor = (() => {
             <h4>הוסף מכשול</h4>
             <button class="se-btn" data-se-action="add-obstacle" data-type="tree">🌳 עץ</button>
             <button class="se-btn" data-se-action="add-obstacle" data-type="building">🏢 מבנה שכן</button>
+            <button class="se-btn" data-se-action="add-obstacle" data-type="equipment">🛢 דוד שמש</button>
+            <button class="se-btn" data-se-action="add-obstacle" data-type="antenna">📡 אנטנה</button>
+            <button class="se-btn" data-se-action="add-obstacle" data-type="chimney">🧱 ארובה</button>
           </div>
           <div class="se-card">
             <h4>מבנה הבית</h4>
@@ -50,13 +53,19 @@ const SimEditor = (() => {
               <button class="se-btn se-mini" data-se-action="stories-inc">+</button>
             </div>
             <button class="se-btn" data-se-action="align-door">🚪 יישר לפי הדלת</button>
+            <button class="se-btn" id="se-snap-btn" data-se-action="toggle-snap">🧲 הצמדה: פעילה</button>
+            <button class="se-btn" data-se-action="auto-arrange">✨ סדר אוטומטית</button>
           </div>
           <div class="se-card hidden" id="se-sel">
             <h4 id="se-sel-title">אובייקט נבחר</h4>
             <div class="se-field" id="se-height-field">גובה: <span id="se-height-val"></span> מ'
               <input type="range" min="2" max="20" step="0.5" id="se-height" data-se-input="height">
+              <button class="se-btn se-mini hidden" id="se-height-auto" data-se-action="height-auto">אוטו׳</button>
             </div>
-            <button class="se-btn warn" data-se-action="delete-selected">🗑 מחק</button>
+            <div class="se-field hidden" id="se-scale-field">גודל: <span id="se-scale-val"></span>×
+              <input type="range" min="0.4" max="3" step="0.1" id="se-scale" data-se-input="scale">
+            </div>
+            <button class="se-btn warn" id="se-delete-btn" data-se-action="delete-selected">🗑 מחק</button>
           </div>
           <div class="se-card">
             <button class="se-btn" data-se-action="reset-layout">↺ אפס</button>
@@ -88,16 +97,20 @@ const SimEditor = (() => {
       if (action === 'close') close();
       else if (action === 'add-obstacle') { if (plan) plan.addObstacle(btn.dataset.type); }
       else if (action === 'delete-selected') { if (plan) plan.deleteSelected(); }
+      else if (action === 'height-auto') setSelectedHeightAuto();
       else if (action === 'reset-layout') resetLayout();
       else if (action === 'toggle-play') togglePlay();
       else if (action === 'stories-inc') changeStories(1);
       else if (action === 'stories-dec') changeStories(-1);
       else if (action === 'align-door') alignDoor();
+      else if (action === 'toggle-snap') toggleSnap();
+      else if (action === 'auto-arrange') { if (plan) plan.autoArrange(); }
     });
     el.addEventListener('input', e => {
       const input = e.target.closest('[data-se-input]');
       if (!input) return;
       if (input.dataset.seInput === 'height') setSelectedHeight(input.value);
+      else if (input.dataset.seInput === 'scale') setSelectedScale(input.value);
       else if (input.dataset.seInput === 'time') setTime(input.value);
       else if (input.dataset.seInput === 'orientation') setOrientation(input.value);
     });
@@ -146,32 +159,80 @@ const SimEditor = (() => {
   }
 
   // ---------- selection panel (obstacles) ----------
+  const OB_TITLES = { tree: '🌳 עץ', building: '🏢 מבנה שכן', equipment: '🛢 דוד שמש / ציוד',
+    antenna: '📡 אנטנה / צלחת', chimney: '🧱 ארובה / עמוד' };
+
   function onSelect(sel) {
     selected = sel;
     const card = $('se-sel');
     const isObs = sel && sel.kind === 'obs';
-    if (card) card.classList.toggle('hidden', !isObs);
+    const isSeg = sel && sel.kind === 'seg';
+    if (card) card.classList.toggle('hidden', !isObs && !isSeg);
+    const del = $('se-delete-btn'); if (del) del.classList.toggle('hidden', !isObs);
+    const auto = $('se-height-auto'); if (auto) auto.classList.toggle('hidden', !isSeg);
+    const scaleField = $('se-scale-field'); if (scaleField) scaleField.classList.toggle('hidden', !isObs);
+    const hRange = $('se-height');
     if (isObs) {
       const o = layout.obstacles.find(x => x.id === sel.id);
       if (!o) return;
-      setText('se-sel-title', o.type === 'building' ? '🏢 מבנה שכן' : '🌳 עץ');
-      const h = $('se-height'); if (h) h.value = o.height || 4;
+      setText('se-sel-title', OB_TITLES[o.type] || o.type);
+      if (hRange) { hRange.max = 20; hRange.value = o.height || 4; }
       setText('se-height-val', (o.height || 4));
+      const sr = $('se-scale'); if (sr) sr.value = o.s || 1;
+      setText('se-scale-val', o.s || 1);
+    } else if (isSeg) {
+      const g = layout.segments.find(x => x.id === sel.id);
+      if (!g) return;
+      setText('se-sel-title', '🏠 ' + (g.label || g.materialId));
+      const hv = RoofLayout.segmentHeight(g, layout.house);
+      if (hRange) { hRange.max = 9; hRange.value = hv; } // segment levels: 2–9m
+      setText('se-height-val', hv);
     }
   }
   function setSelectedHeight(v) {
+    if (!selected) return;
+    if (selected.kind === 'seg') {
+      const g = layout.segments.find(x => x.id === selected.id);
+      if (!g) return;
+      g.h = parseFloat(v);
+      setText('se-height-val', g.h);
+    } else if (selected.kind === 'obs') {
+      const o = layout.obstacles.find(x => x.id === selected.id);
+      if (!o) return;
+      o.height = parseFloat(v);
+      setText('se-height-val', o.height);
+    }
+    scheduleRender();
+  }
+  function setSelectedScale(v) {
     if (!selected || selected.kind !== 'obs') return;
     const o = layout.obstacles.find(x => x.id === selected.id);
     if (!o) return;
-    o.height = parseFloat(v);
-    setText('se-height-val', o.height);
+    o.s = parseFloat(v);
+    setText('se-scale-val', o.s);
+    scheduleRender();
+  }
+  function setSelectedHeightAuto() {
+    if (!selected || selected.kind !== 'seg') return;
+    const g = layout.segments.find(x => x.id === selected.id);
+    if (!g) return;
+    g.h = null;
+    const hv = RoofLayout.segmentHeight(g, layout.house);
+    const hRange = $('se-height'); if (hRange) hRange.value = hv;
+    setText('se-height-val', hv);
     scheduleRender();
   }
 
   // ---------- structure controls ----------
+  function toggleSnap() {
+    if (!plan) return;
+    plan.setSnap(!plan.getSnap());
+    setText('se-snap-btn', plan.getSnap() ? '🧲 הצמדה: פעילה' : '🧲 הצמדה: כבויה');
+  }
   function changeStories(delta) {
     layout.house.stories = Math.max(1, Math.min(3, (layout.house.stories || 1) + delta));
     setText('se-stories', layout.house.stories);
+    if (selected && selected.kind === 'seg') onSelect(selected); // auto heights follow stories
     scheduleRender();
   }
   function alignDoor() {
@@ -290,7 +351,7 @@ const SimEditor = (() => {
 
   return {
     open, close, addObstacle: t => { if (plan) plan.addObstacle(t); }, deleteSelected: () => { if (plan) plan.deleteSelected(); },
-    setSelectedHeight, setOrientation, setTime, togglePlay, resetLayout, alignDoor, changeStories,
+    setSelectedHeight, setSelectedHeightAuto, setSelectedScale, setOrientation, setTime, togglePlay, resetLayout, alignDoor, changeStories,
   };
 })();
 if (typeof window !== 'undefined') window.SimEditor = SimEditor;

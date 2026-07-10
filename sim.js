@@ -285,8 +285,8 @@ const VoltaSim = (() => {
       if (!S) return null;
       dynamic.updateMatrixWorld(true); // ensure world positions are current
       const panels = [], blockers = [];
-      // only obstacles shade the panels (roof angle is captured by orientation-yield);
-      // this keeps a clean roof at ~100% exposure, which is the headline number.
+      // blockers = obstacles AND module bodies (walls/roofs), so a tall module
+      // shades a lower one; panels are excluded so they never self-block.
       dynamic.traverse(o => {
         if (!o.isMesh) return;
         if (o.userData.isPanel) panels.push(o);
@@ -341,38 +341,50 @@ const VoltaSim = (() => {
     const width = H.width != null ? H.width : (H.footprint || 8);
     const depth = H.depth != null ? H.depth : width * 0.7;
     const storyH = 3;
-    const wallH = storyH * (H.stories || 1);
+    const defaultH = storyH * (H.stories || 1);
 
-    // house + roof live in a rotatable group (orientation); obstacles stay world-fixed
+    // modules live in a rotatable group (orientation); obstacles stay world-fixed
     const houseGroup = new THREE.Group();
     houseGroup.rotation.y = H.orientationRad || 0;
     group.add(houseGroup);
 
     const wallMat = new THREE.MeshStandardMaterial({ color: 0x223247, roughness: 0.9, metalness: 0.05 });
-    const walls = new THREE.Mesh(new THREE.BoxGeometry(width, wallH, depth), wallMat);
-    walls.position.y = wallH / 2;
-    walls.castShadow = true; walls.receiveShadow = true;
-    houseGroup.add(walls);
 
-    // entrance door on the named wall (visual anchor only)
-    addDoor(houseGroup, H.door, width, depth);
-
-    // roof segments: explicit placement (cx,cz,w,d,rotDeg) or legacy proportional row
+    // Each segment is a full module: base volume from the ground to its own
+    // level h, roof on top. Dragging a segment in the plan moves all of it.
     const parts = s.parts && s.parts.length ? s.parts : [{ geometry: 'flat', cx: 0, cz: 0, w: width, d: depth }];
     const explicit = parts[0] && parts[0].w != null;
     let rowX = -width / 2;
+    let doorHost = null, doorArea = -1, doorDims = null;
     parts.forEach(part => {
       const pw = part.w != null ? part.w : Math.max(0.5, width * (part.areaShare || (1 / parts.length)));
       const pd = part.d != null ? part.d : depth;
       const cx = part.cx != null ? part.cx : (rowX + pw / 2);
       const cz = part.cz != null ? part.cz : 0;
       if (!explicit) rowX += pw;
+      const h = part.h != null ? part.h : (part.geometry === 'pergola' ? 2.5 : defaultH);
+      // write resolved placement back so buildObstacles can find roof heights
+      part.cx = cx; part.cz = cz; part.w = pw; part.d = pd; part.h = h;
+
       const sub = new THREE.Group();
       sub.position.set(cx, 0, cz);
       sub.rotation.y = (part.rotDeg || 0) * Math.PI / 180;
       houseGroup.add(sub);
-      makeRoofPart(sub, part.geometry, pw, pd, wallH);
+
+      if (part.geometry !== 'pergola') {
+        const walls = new THREE.Mesh(new THREE.BoxGeometry(pw, h, pd), wallMat);
+        walls.position.y = h / 2;
+        walls.castShadow = true; walls.receiveShadow = true;
+        sub.add(walls);
+      }
+      makeRoofPart(sub, part.geometry, pw, pd, h);
+      // module bodies shade lower panels; panels themselves must not self-block
+      sub.traverse(o => { if (o.isMesh && !o.userData.isPanel) o.userData.blocker = true; });
+
+      if (pw * pd > doorArea) { doorArea = pw * pd; doorHost = sub; doorDims = { w: pw, d: pd }; }
     });
+    // entrance door on the largest module (visual orientation anchor)
+    if (doorHost) addDoor(doorHost, H.door, doorDims.w, doorDims.d);
   }
 
   // door: a thin dark panel flush to a wall, ~1.1m wide. Visual orientation anchor.
@@ -444,8 +456,8 @@ const VoltaSim = (() => {
     const wood = new THREE.MeshStandardMaterial({ color: MAT_COLOR.pergola, map: woodTexture(), roughness: 0.9 });
     const top = baseY + 0.4;
     const post = (px, pz) => {
-      const p = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.4, 0.18), wood);
-      p.position.set(px, baseY + 0.2, pz); p.castShadow = true; group.add(p);
+      const p = new THREE.Mesh(new THREE.BoxGeometry(0.18, top, 0.18), wood);
+      p.position.set(px, top / 2, pz); p.castShadow = true; group.add(p);
     };
     post(cx - w / 2 + 0.2, -depth / 2 + 0.2); post(cx + w / 2 - 0.2, -depth / 2 + 0.2);
     post(cx - w / 2 + 0.2, depth / 2 - 0.2); post(cx + w / 2 - 0.2, depth / 2 - 0.2);
@@ -504,26 +516,52 @@ const VoltaSim = (() => {
     return grp;
   }
 
+  // Height of the module under world point (wx,wz): undo house orientation,
+  // then test each part's rect (with its own rotation). Falls back to the
+  // tallest part, then to stories*3 (legacy dock path).
+  function roofHeightAt(s, wx, wz) {
+    const th = (s.house && s.house.orientationRad) || 0;
+    const lx = wx * Math.cos(th) - wz * Math.sin(th);
+    const lz = wx * Math.sin(th) + wz * Math.cos(th);
+    let best = 0, tallest = 0;
+    (s.parts || []).forEach(p => {
+      tallest = Math.max(tallest, p.h || 0);
+      if (p.w == null || p.cx == null) return;
+      const pr = -((p.rotDeg || 0) * Math.PI / 180);
+      const dx0 = lx - p.cx, dz0 = lz - p.cz;
+      const dx = dx0 * Math.cos(pr) - dz0 * Math.sin(pr);
+      const dz = dx0 * Math.sin(pr) + dz0 * Math.cos(pr);
+      if (Math.abs(dx) <= p.w / 2 && Math.abs(dz) <= p.d / 2) best = Math.max(best, p.h || 0);
+    });
+    const h = best || tallest || 3 * ((s.house && s.house.stories) || 1);
+    return h + 0.05;
+  }
+
   function buildObstacles(group, s, editor) {
-    const roofY = 3 * ((s.house && s.house.stories) || 1) + 0.5; // top of the walls
     s.obstacles.forEach((o, i) => {
       const g = new THREE.Group();              // dragged in x/z
       const inner = new THREE.Group();          // lifted to roof height for roof-mounted items
-      inner.position.y = o.onRoof ? roofY : 0;
       g.add(inner);
+      const sc = o.s || 1;
+      // building: footprint-only scale (a box stretches fine, height has its own
+      // slider); everything else scales uniformly so round canopies stay round.
+      const scaled = new THREE.Group();
+      scaled.scale.set(sc, o.type === 'building' ? 1 : sc, sc);
+      inner.add(scaled);
       const h = o.height || (o.type === 'building' ? 8 : 3.5);
       switch (o.type) {
-        case 'tree':      buildTree(inner, h); break;
-        case 'building':  buildNeighbor(inner, h); break;
-        case 'equipment': buildEquipment(inner); break;
-        case 'antenna':   buildAntenna(inner); break;
-        case 'chimney':   buildChimney(inner); break;
-        default:          buildNeighbor(inner, h);
+        case 'tree':      buildTree(scaled, h); break;
+        case 'building':  buildNeighbor(scaled, h); break;
+        case 'equipment': buildEquipment(scaled); break;
+        case 'antenna':   buildAntenna(scaled); break;
+        case 'chimney':   buildChimney(scaled); break;
+        default:          buildNeighbor(scaled, h);
       }
       g.userData.obstacle = true;
       g.traverse(o2 => { if (o2.isMesh) o2.userData.blocker = true; }); // shade source
       group.add(g);
       applyDraggable(g, o.id || ('obstacle-' + i), editor, o.x, o.z);
+      inner.position.y = o.onRoof ? roofHeightAt(s, g.position.x, g.position.z) : 0;
     });
   }
 

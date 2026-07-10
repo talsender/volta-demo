@@ -9,11 +9,16 @@ const PlanEditor = (() => {
     corrugated: '#6fb7c9', onduline: '#6f9fc9', insulated: '#7fa6d6', membrane: '#6fc9a0',
     ground: '#8a9a5a', default: '#56a0c9',
   };
+  // physical half-extents (meters at s=1) for plan icons + resize math
+  const OB_HALF = { tree: 1.5, building: 2.25, equipment: 0.8, antenna: 0.6, chimney: 0.5 };
+  const OB_ROOF = { equipment: 1, antenna: 1, chimney: 1 };
 
   function mount(svg, layout, opts) {
     opts = opts || {};
     let sel = null;     // {kind:'seg'|'obs', id}
     let drag = null;    // {mode, id, dx, dz}
+    let snapOn = true;  // magnetic snapping (Alt bypasses while held)
+    let guides = [];    // guide lines while snapping, cleared on release
     const view = { scale: 12, ox: 0, oy: 0 };
 
     function fit() {
@@ -68,12 +73,23 @@ const PlanEditor = (() => {
       drawDoor();
       // obstacles
       layout.obstacles.forEach(o => {
+        const sc = o.s || 1;
+        const halfPx = Math.max(6, (OB_HALF[o.type] || 1) * sc * view.scale);
         const isB = o.type === 'building';
         const node = isB
-          ? el('rect', { x: mx(o.x) - 7, y: my(o.z) - 7, width: 14, height: 14, rx: 2, fill: '#ff5d6c', 'data-obs': o.id })
-          : el('circle', { cx: mx(o.x), cy: my(o.z), r: 7, fill: '#3df08a', 'data-obs': o.id });
-        if (sel && sel.kind === 'obs' && sel.id === o.id) { node.setAttribute('stroke', '#fff'); node.setAttribute('stroke-width', 2); }
+          ? el('rect', { x: mx(o.x) - halfPx, y: my(o.z) - halfPx, width: halfPx * 2, height: halfPx * 2, rx: 2,
+              fill: '#ff5d6c', 'fill-opacity': 0.75, 'data-obs': o.id })
+          : el('circle', { cx: mx(o.x), cy: my(o.z), r: halfPx,
+              fill: o.onRoof ? '#ffd16a' : '#3df08a', 'fill-opacity': 0.75, 'data-obs': o.id });
+        const isSel = sel && sel.kind === 'obs' && sel.id === o.id;
+        if (isSel) { node.setAttribute('stroke', '#fff'); node.setAttribute('stroke-width', 2); }
         svg.appendChild(node);
+        if (isSel) svg.appendChild(handle(mx(o.x) + halfPx + 6, my(o.z), 'resize-obs', o.id));
+      });
+      // snap guide lines (transient, while dragging)
+      guides.forEach(g => {
+        if (g.axis === 'x') svg.appendChild(el('line', { x1: mx(g.at), y1: 0, x2: mx(g.at), y2: Hh, stroke: '#56f7d6', 'stroke-dasharray': '4 3', 'stroke-opacity': 0.8 }));
+        else svg.appendChild(el('line', { x1: 0, y1: my(g.at), x2: W, y2: my(g.at), stroke: '#56f7d6', 'stroke-dasharray': '4 3', 'stroke-opacity': 0.8 }));
       });
     }
 
@@ -99,7 +115,8 @@ const PlanEditor = (() => {
 
     function onDown(e) {
       const t = e.target, ds = t.dataset || {}, p = off(e), m = toM(p.x, p.y);
-      if (ds.handle === 'resize') { drag = { mode: 'resize-seg', id: ds.id }; select('seg', ds.id); }
+      if (ds.handle === 'resize-obs') { drag = { mode: 'resize-obs', id: ds.id }; select('obs', ds.id); }
+      else if (ds.handle === 'resize') { drag = { mode: 'resize-seg', id: ds.id }; select('seg', ds.id); }
       else if (ds.handle === 'rotate') { drag = { mode: 'rotate-seg', id: ds.id }; select('seg', ds.id); }
       else if (ds.handle === 'house-w') { drag = { mode: 'resize-house-w' }; }
       else if (ds.handle === 'house-d') { drag = { mode: 'resize-house-d' }; }
@@ -113,16 +130,30 @@ const PlanEditor = (() => {
     function onMove(e) {
       if (!drag) return;
       const p = off(e), m = toM(p.x, p.y), H = layout.house;
-      if (drag.mode === 'move-seg') { const s = segById(drag.id); s.cx = m.x - drag.dx; s.cz = m.z - drag.dz; }
+      if (drag.mode === 'move-seg') {
+        const s = segById(drag.id);
+        let cx = m.x - drag.dx, cz = m.z - drag.dz;
+        guides = [];
+        if (snapOn && !e.altKey && typeof RoofLayout !== 'undefined' && RoofLayout.snapMove) {
+          const r = RoofLayout.snapMove(s, { cx: cx, cz: cz }, layout.segments, layout.house);
+          cx = r.cx; cz = r.cz; guides = r.guides;
+        }
+        s.cx = cx; s.cz = cz;
+      }
       else if (drag.mode === 'resize-seg') { const s = segById(drag.id); s.w = Math.max(0.5, Math.abs(m.x - s.cx) * 2); s.d = Math.max(0.5, Math.abs(m.z - s.cz) * 2); }
       else if (drag.mode === 'rotate-seg') { const s = segById(drag.id); s.rotDeg = Math.round(Math.atan2(m.x - s.cx, -(m.z - s.cz)) * 180 / Math.PI); }
       else if (drag.mode === 'resize-house-w') { H.width = Math.max(2, Math.abs(m.x) * 2); }
       else if (drag.mode === 'resize-house-d') { H.depth = Math.max(2, Math.abs(m.z) * 2); }
       else if (drag.mode === 'move-door') { snapDoor(m); }
       else if (drag.mode === 'move-obs') { const o = obsById(drag.id); o.x = m.x; o.z = m.z; }
+      else if (drag.mode === 'resize-obs') {
+        const o = obsById(drag.id); const base = OB_HALF[o.type] || 1;
+        const dist = Math.hypot(m.x - o.x, m.z - o.z);
+        o.s = Math.max(0.4, Math.min(3, Math.round((dist / base) * 10) / 10));
+      }
       render(); emit();
     }
-    function onUp(e) { if (drag) { try { svg.releasePointerCapture(e.pointerId); } catch (_) {} drag = null; emit(); } }
+    function onUp(e) { if (drag) { try { svg.releasePointerCapture(e.pointerId); } catch (_) {} drag = null; guides = []; render(); emit(); } }
 
     function snapDoor(m) {
       const H = layout.house, dx = H.width / 2, dz = H.depth / 2;
@@ -143,7 +174,11 @@ const PlanEditor = (() => {
     let obsCounter = 0;
     function addObstacle(type) {
       const id = 'usr' + (obsCounter++);
-      layout.obstacles.push({ id: id, type: type, x: 4, z: 4, height: type === 'building' ? 9 : 4, onRoof: false });
+      const onRoof = !!OB_ROOF[type];
+      layout.obstacles.push({ id: id, type: type,
+        x: onRoof ? 0 : 4, z: onRoof ? 0 : 4,       // roof items start on the house
+        height: type === 'building' ? 9 : (onRoof ? 1.4 : 4),
+        s: 1, onRoof: onRoof });
       select('obs', id); render(); emit();
     }
     function deleteSelected() {
@@ -157,6 +192,12 @@ const PlanEditor = (() => {
     return {
       render: render, selected: () => sel, addObstacle: addObstacle, deleteSelected: deleteSelected,
       setOrientation: setOrientation,
+      setSnap: function (on) { snapOn = !!on; },
+      getSnap: function () { return snapOn; },
+      autoArrange: function () {
+        if (typeof RoofLayout !== 'undefined' && RoofLayout.autoArrange) RoofLayout.autoArrange(layout);
+        select(null); render(); emit();
+      },
       destroy: function () { svg.removeEventListener('pointerdown', onDown); svg.removeEventListener('pointermove', onMove); svg.removeEventListener('pointerup', onUp); },
     };
   }
