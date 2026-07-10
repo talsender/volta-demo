@@ -635,6 +635,7 @@ function initDataLayerWhenReady() {
       if (typeof updateSimDock === 'function') updateSimDock();
     });
   }
+  startAgentAuthSession();
   return true;
 }
 
@@ -675,6 +676,10 @@ async function attemptLogin() {
   const errEl = document.getElementById('login-error');
   if (authMode() === 'firebase') {
     await attemptFirebaseLogin(email, password, errEl);
+    return;
+  }
+  if (!VoltaDB.ready()) {
+    errEl.textContent = 'החיבור לשרת עדיין נטען — נסה שוב בעוד רגע';
     return;
   }
   const agent = await Auth.findAgentByCredentialsAsync(_agents, email, password);
@@ -766,14 +771,28 @@ function initAgentAuth() {
   document.getElementById('bootstrap-btn').addEventListener('click', () => {
     if (window.Admin) Admin.bootstrap();
   });
+  // Initial gate state comes from the stored session only. Live reconciliation
+  // starts in startAgentAuthSession() once VoltaDB is initialized.
+  if (authMode() !== 'firebase' && Auth.getCurrentAgent()) { hideLoginGate(); renderAgentBar(); }
+  else { showLoginGate(); }
+}
+
+// Live agents list — used to validate logins, reconcile sessions, and toggle
+// bootstrap. Must run only after VoltaDB.init(): subscribing earlier returns a
+// dead no-op subscription with an empty agents list, which made an existing
+// deployment look like first-time setup (bootstrap button shown) and wiped the
+// stored session.
+function startAgentAuthSession() {
   if (authMode() === 'firebase') {
     initFirebaseAuthSession();
-  } else {
-    // Live agents list — used to validate logins, reconcile sessions, and toggle bootstrap.
-    VoltaDB.subscribeAgents(list => { _agents = list; refreshBootstrapVisibility(); reconcileLoginState(); });
-    if (Auth.getCurrentAgent()) { hideLoginGate(); renderAgentBar(); }
-    else { showLoginGate(); }
+    return;
   }
+  VoltaDB.subscribeAgents((list, meta) => {
+    if (meta && meta.authoritative === false) return; // backend not ready / listen error — keep last known state
+    _agents = list;
+    refreshBootstrapVisibility();
+    reconcileLoginState();
+  });
 }
 
 function initFirebaseAuthSession() {
@@ -975,10 +994,12 @@ async function init() {
   initSettlementTab();
   initRequestModal();
 
+  // Wire the login UI (and gate from the stored session) before the data layer
+  // starts the live agents subscription in startAgentAuthSession().
+  initAgentAuth();
   if (!initDataLayerWhenReady()) {
     window.addEventListener('firebase-ready', initDataLayerWhenReady, { once: true });
   }
-  initAgentAuth();
   initMyRequests();
   if (typeof initManagerPanel === 'function') initManagerPanel();
   // The roof-settings editor is launched from inside the unified manager panel

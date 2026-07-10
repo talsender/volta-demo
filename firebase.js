@@ -42,11 +42,15 @@ const VoltaDB = (() => {
   }
 
   // ---- agents ----
+  // cb(list, meta): meta.authoritative is false when the empty list only means
+  // "backend not ready / listen failed" — callers deciding on login state or
+  // first-time setup must ignore those updates instead of treating them as
+  // "no agents exist".
   function subscribeAgents(cb) {
-    if (!_ok) { cb([]); return () => {}; }
+    if (!_ok) { cb([], { authoritative: false }); return () => {}; }
     return firebase.onSnapshot(firebase.collection(_db, 'agents'), snap => {
-      cb(snap.docs.map(d => Object.assign({ id: d.id }, d.data())));
-    }, err => { console.warn('agents listen error', err); cb([]); });
+      cb(snap.docs.map(d => Object.assign({ id: d.id }, d.data())), { authoritative: true });
+    }, err => { console.warn('agents listen error', err); cb([], { authoritative: false }); });
   }
   function addAgent(agent) {
     return firebase.addDoc(firebase.collection(_db, 'agents'), agent);
@@ -139,4 +143,5 @@ const VoltaDB = (() => {
   };
 })();
 
+if (typeof module !== 'undefined' && module.exports) module.exports = VoltaDB;
 if (typeof window !== 'undefined') window.VoltaDB = VoltaDB;
