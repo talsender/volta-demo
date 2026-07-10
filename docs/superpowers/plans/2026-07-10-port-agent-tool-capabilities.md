@@ -160,11 +160,11 @@ git commit -m "feat: attendance time-clock — punch in/out, live daily board, m
 **Files:**
 - Use: `tools/verify-clean.sh` (proprietary-token sweep), scratchpad browser script.
 
-- [ ] **Step 1: Run the repo's proprietary-token sweep**
+- [x] **Step 1: Run the repo's proprietary-token sweep**
 
 Run: `bash tools/verify-clean.sh` → expected: clean / exit 0. (Note: the sweep must exclude itself — its pattern line contains the tokens it hunts.)
 
-- [ ] **Step 2: Browser e2e (headless Chrome, local serve)**
+- [x] **Step 2: Browser e2e (headless Chrome, local serve)**
 
 Serve: `npx http-server . -p 8123 -c-1 --silent` (background). Script checks, with a probe agent session (created as a real Firestore agent doc for the test, removed afterwards):
 1. Tab `⏱ נוכחות` exists; clicking it shows the punch button enabled.
@@ -172,13 +172,13 @@ Serve: `npx http-server . -p 8123 -c-1 --silent` (background). Script checks, wi
 3. Wizard tab: answer one question → `→ חזור שלב` button appears; click → previous question restored.
 4. Sim editor opens (enlarge & edit) with snap toggle + auto-arrange buttons; no `pageerror` in console.
 
-- [ ] **Step 3: Clean up probe data**
+- [x] **Step 3: Clean up probe data**
 
 Delete the probe's attendance doc and the probe agent doc via Firestore REST:
 `curl -X DELETE "https://firestore.googleapis.com/v1/projects/volta-demo-92912/databases/(default)/documents/attendance/<todayKey>_<probeId>"`
 `curl -X DELETE "https://firestore.googleapis.com/v1/projects/volta-demo-92912/databases/(default)/documents/agents/<probeId>"`
 
-- [ ] **Step 4: Commit any fixes found**
+- [x] **Step 4: Commit any fixes found**
 
 Only if e2e surfaced issues; otherwise nothing to commit.
 
@@ -186,16 +186,16 @@ Only if e2e surfaced issues; otherwise nothing to commit.
 
 ### Task 5: Deploy + live verification
 
-- [ ] **Step 1: Push**
+- [x] **Step 1: Push**
 
 ```bash
 git push origin main
 ```
 
-- [ ] **Step 2: Poll Pages until deployed**
+- [x] **Step 2: Poll Pages until deployed**
 
 Run: poll `https://talsender.github.io/volta-demo/attendance.js` (nocache query) until HTTP 200, up to ~4 min.
 
-- [ ] **Step 3: Live browser check (read-only)**
+- [x] **Step 3: Live browser check (read-only)**
 
 Same script against `https://talsender.github.io/volta-demo/`: attendance tab renders, punch button reflects login state, wizard back button appears mid-wizard, editor opens without console errors. No punch clicks against the live board (avoid polluting real data).
