@@ -97,6 +97,7 @@ const Admin = (() => {
     renderRequests();
     renderAgents();
     renderRoof();
+    renderAttendanceReport();
     renderAudit();
     switchTab('requests');
     markAdminSeen();      // opening the panel = the manager has now seen pending items
@@ -141,6 +142,7 @@ const Admin = (() => {
     set('requests', true);
     set('agents', isManager);
     set('roof', isManager);
+    set('attendance', isManager);
     set('audit', isManager);
   }
 
@@ -150,7 +152,119 @@ const Admin = (() => {
     document.getElementById('admin-requests').classList.toggle('hidden', name !== 'requests');
     document.getElementById('admin-agents').classList.toggle('hidden', name !== 'agents');
     document.getElementById('admin-roof').classList.toggle('hidden', name !== 'roof');
+    document.getElementById('admin-attendance').classList.toggle('hidden', name !== 'attendance');
     document.getElementById('admin-audit').classList.toggle('hidden', name !== 'audit');
+  }
+
+  // ---- attendance report tab (manager) ----
+  let _attReport = [];   // entries loaded for the chosen range
+
+  function renderAttendanceReport() {
+    const pane = document.getElementById('admin-attendance');
+    if (!pane) return;
+    if (_ctx !== 'manager' || typeof Attendance === 'undefined') { pane.innerHTML = ''; return; }
+    const today = Attendance.localDateKey();
+    const monthStart = today.slice(0, 8) + '01';
+    pane.innerHTML = `
+      <div class="att-report-controls">
+        <label>מ- <input type="date" id="att-from" value="${monthStart}"></label>
+        <label>עד <input type="date" id="att-to" value="${today}"></label>
+        <button class="btn primary" data-admin-action="att-load">טען דוח</button>
+        <button class="btn secondary" data-admin-action="att-export">⬇ ייצוא CSV</button>
+      </div>
+      <div id="att-report-table" class="att-report-table">
+        <div class="my-req-empty">בחר טווח תאריכים ולחץ "טען דוח".</div>
+      </div>`;
+  }
+
+  async function loadAttendanceReport() {
+    const tableEl = document.getElementById('att-report-table');
+    const from = (document.getElementById('att-from') || {}).value;
+    const to = (document.getElementById('att-to') || {}).value;
+    if (!from || !to || from > to) { tableEl.innerHTML = '<div class="my-req-empty">טווח תאריכים לא תקין.</div>'; return; }
+    tableEl.innerHTML = '<div class="my-req-empty">טוען...</div>';
+    try {
+      _attReport = await VoltaDB.getAttendanceRange(from, to);
+    } catch (e) {
+      tableEl.innerHTML = '<div class="my-req-empty">שגיאה בטעינה: ' + escHtml((e && e.message) || '') + '</div>';
+      return;
+    }
+    renderAttendanceReportTable();
+  }
+
+  function attReportRows() {
+    const today = Attendance.localDateKey();
+    return _attReport.map(e => {
+      const isToday = e.date === today;
+      const sum = Attendance.computeSummary(e.sessions, Date.now(), isToday);
+      return {
+        id: e.id, date: e.date, agentName: e.agentName || e.agentId,
+        firstIn: sum.firstIn, lastOut: sum.lastOut, totalMs: sum.totalMs,
+        open: sum.open && !isToday,   // open on a past day = forgot to clock out
+        openToday: sum.open && isToday,
+      };
+    }).sort((a, b) => a.date === b.date
+      ? String(a.agentName).localeCompare(String(b.agentName), 'he')
+      : (a.date < b.date ? -1 : 1));
+  }
+
+  function renderAttendanceReportTable() {
+    const tableEl = document.getElementById('att-report-table');
+    const rows = attReportRows();
+    if (!rows.length) { tableEl.innerHTML = '<div class="my-req-empty">אין נתוני נוכחות בטווח.</div>'; return; }
+    const totalAll = rows.reduce((a, r) => a + r.totalMs, 0);
+    tableEl.innerHTML = `
+      <div class="att-row att-head-row att-report-row">
+        <span>תאריך</span><span>נציג</span><span>כניסה</span><span>יציאה</span><span>סה"כ</span><span></span>
+      </div>` + rows.map(r => `
+      <div class="att-row att-report-row${r.open ? ' open' : ''}">
+        <span>${escHtml(r.date)}</span>
+        <span>${escHtml(r.agentName)}</span>
+        <span>${Attendance.fmtTime(r.firstIn)}</span>
+        <span>${r.openToday ? '<span class="att-in-now">בפנים</span>' : (r.open ? '⚠ חסרה' : Attendance.fmtTime(r.lastOut))}</span>
+        <span class="att-total">${Attendance.fmtDur(r.totalMs)}</span>
+        <span>${r.open ? `<button class="btn secondary att-fix-btn" data-admin-action="att-fix" data-id="${escHtml(r.id)}">השלם יציאה</button>` : ''}</span>
+      </div>`).join('') + `
+      <div class="att-row att-sum-row">
+        <span>סה"כ (${rows.length} רשומות)</span><span></span><span></span><span></span>
+        <span class="att-total">${Attendance.fmtDur(totalAll)}</span><span></span>
+      </div>`;
+  }
+
+  // Close a forgotten session: manager enters an out-time (HH:MM, on the entry's date).
+  async function fixAttendanceEntry(id) {
+    const entry = _attReport.find(e => e.id === id);
+    if (!entry) return;
+    const t = window.prompt('שעת יציאה (HH:MM) עבור ' + (entry.agentName || '') + ' בתאריך ' + entry.date + ':', '17:00');
+    if (t == null) return;
+    const m = /^(\d{1,2}):(\d{2})$/.exec(t.trim());
+    if (!m) { alert('פורמט שעה לא תקין'); return; }
+    const outIso = new Date(entry.date + 'T' + String(m[1]).padStart(2, '0') + ':' + m[2] + ':00').toISOString();
+    const sessions = (entry.sessions || []).map(s => s.out === null || s.out === undefined
+      ? { in: s.in, out: outIso } : s);
+    try {
+      await VoltaDB.setAttendanceEntry(id, {
+        date: entry.date, agentId: entry.agentId, agentName: entry.agentName || '',
+        sessions, updatedAt: Date.now(),
+      });
+      entry.sessions = sessions;
+      renderAttendanceReportTable();
+    } catch (e) {
+      alert('שמירה נכשלה: ' + ((e && e.message) || ''));
+    }
+  }
+
+  function exportAttendanceCsv() {
+    const rows = attReportRows();
+    if (!rows.length) { alert('אין נתונים לייצוא — טען דוח קודם.'); return; }
+    const csv = String.fromCharCode(0xFEFF) + Attendance.toCsv(rows);   // BOM so Excel opens Hebrew correctly
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'attendance_' + ((document.getElementById('att-from') || {}).value || '') +
+      '_' + ((document.getElementById('att-to') || {}).value || '') + '.csv';
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
   }
 
   // ---- roof settings tab (launches the existing roof Settings editor) ----
@@ -530,6 +644,9 @@ const Admin = (() => {
     else if (action === 'remove-agent') removeAgent(id);
     else if (action === 'save-edit') saveEdit(id);
     else if (action === 'cancel-edit') cancelEdit();
+    else if (action === 'att-load') loadAttendanceReport();
+    else if (action === 'att-export') exportAttendanceCsv();
+    else if (action === 'att-fix') fixAttendanceEntry(id);
   }
 
   function handleAdminInput(e) {

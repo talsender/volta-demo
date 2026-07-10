@@ -88,6 +88,7 @@
           <button class="tab" data-tab="wizard"><span class="tab-code">02</span>🏠 כשירות גג</button>
           <button class="tab" data-tab="kb"><span class="tab-code">03</span>📚 מאגר ידע</button>
           <button class="tab" data-tab="offerings"><span class="tab-code">04</span>💰 מסלולים ומחירים</button>
+          <button class="tab" data-tab="attendance"><span class="tab-code">05</span>⏱ נוכחות</button>
         </nav>
 
         <!-- Tab 1: Settlement Check -->
@@ -144,6 +145,25 @@
           </div>
           <div class="search-label">מסלולי מכירה, מחירים וליסינג — לפי הערות השטח של הנציגים:</div>
           <div id="offerings-list" class="offerings-list"></div>
+        </section>
+
+        <!-- Tab 5: Attendance (time-clock) -->
+        <section id="tab-attendance" class="tab-content hidden">
+          <div class="module-head">
+            <span class="module-id">MODULE&nbsp;05</span>
+            <span class="module-name">TIME&nbsp;CLOCK</span>
+            <span class="module-stat"><span class="led led-green"></span>LIVE</span>
+          </div>
+          <div class="att-punch-area">
+            <div class="att-my-status" id="att-my-status">טוען...</div>
+            <button class="att-punch-btn" id="att-punch-btn" data-app-action="attendance-punch" disabled>—</button>
+            <div class="att-punch-err" id="att-punch-err"></div>
+          </div>
+          <div class="att-board-head">
+            <span class="att-board-title">לוח נוכחות · היום (<span id="att-board-date">—</span>)</span>
+            <span class="att-board-count" id="att-board-count"></span>
+          </div>
+          <div id="att-board" class="att-board"></div>
         </section>
       </main>
     </div>
@@ -231,11 +251,13 @@
         <button class="admin-tab active" data-atab="requests">בקשות</button>
         <button class="admin-tab" data-atab="agents">נציגים</button>
         <button class="admin-tab" data-atab="roof">הגדרות גג</button>
+        <button class="admin-tab" data-atab="attendance">נוכחות</button>
         <button class="admin-tab" data-atab="audit">Audit</button>
       </nav>
       <div id="admin-requests" class="admin-pane"></div>
       <div id="admin-agents" class="admin-pane hidden"></div>
       <div id="admin-roof" class="admin-pane hidden"></div>
+      <div id="admin-attendance" class="admin-pane hidden"></div>
       <div id="admin-audit" class="admin-pane hidden"></div>
       <div class="req-actions">
         <button id="admin-close" class="btn reset">סגור</button>
@@ -286,6 +308,7 @@
   <script src="firebase.js"></script>
   <script src="roof-store.js"></script>
   <script src="settlements-data.js"></script>
+  <script src="attendance.js"></script>
   <script src="knowledge-base.js"></script>
   <script src="settlements.js"></script>
   <script src="wizard.js"></script>

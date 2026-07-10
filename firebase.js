@@ -120,6 +120,31 @@ const VoltaDB = (() => {
     return firebase.setDoc(firebase.doc(_db, 'roofConfig', 'default'), cfg);
   }
 
+  // ---- attendance (time-clock) ----
+  // Doc id: `${YYYY-MM-DD}_${uid}` — one doc per agent per Israel-local day.
+  function subscribeAttendanceForDate(date, cb) {
+    if (!_ok || !firebase.query || !firebase.where) { cb([]); return () => {}; }
+    const q = firebase.query(firebase.collection(_db, 'attendance'), firebase.where('date', '==', date));
+    return firebase.onSnapshot(q, snap => {
+      cb(snap.docs.map(d => Object.assign({ id: d.id }, d.data())));
+    }, err => { console.warn('attendance listen error', err); cb([]); });
+  }
+  async function getAttendanceEntry(id) {
+    if (!_ok) return null;
+    const snap = await firebase.getDoc(firebase.doc(_db, 'attendance', id));
+    return snap.exists ? Object.assign({ id: snap.id }, snap.data()) : null;
+  }
+  function setAttendanceEntry(id, data) {
+    return firebase.setDoc(firebase.doc(_db, 'attendance', id), data);
+  }
+  async function getAttendanceRange(fromDate, toDate) {
+    if (!_ok || !firebase.query || !firebase.where) return [];
+    const q = firebase.query(firebase.collection(_db, 'attendance'),
+      firebase.where('date', '>=', fromDate), firebase.where('date', '<=', toDate));
+    const snap = await firebase.getDocs(q);
+    return snap.docs.map(d => Object.assign({ id: d.id }, d.data()));
+  }
+
   // ---- audit logs ----
   function addAuditEvent(event) {
     if (!_ok) return Promise.resolve(null);
@@ -139,6 +164,7 @@ const VoltaDB = (() => {
     subscribeRequests, subscribeRequestsForAgent, addRequest, updateRequest, applyPermanentSettlementApproval,
     loadOverrides, setOverride,
     subscribeRoofConfig, saveRoofConfig,
+    subscribeAttendanceForDate, getAttendanceEntry, setAttendanceEntry, getAttendanceRange,
     addAuditEvent, subscribeAuditLogs,
   };
 })();

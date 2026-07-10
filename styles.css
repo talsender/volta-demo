@@ -1292,3 +1292,70 @@ input[type=range]::-webkit-slider-thumb {
 .se-plan-svg { width: 100%; height: 100%; display: block; touch-action: none; cursor: crosshair; }
 .se-btn.se-mini { padding: 2px 9px; min-width: 0; margin: 0 4px; }
 #se-stories { font-family: var(--mono); min-width: 14px; display: inline-block; text-align: center; }
+
+/* ===================== ATTENDANCE (Module 05) ===================== */
+.att-punch-area {
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  padding: 20px 14px; margin-bottom: 16px;
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: 13px;
+}
+.att-my-status { font-size: 14px; color: var(--text-dim); }
+.att-my-status b { color: var(--cyan-br); }
+.att-punch-btn {
+  min-width: 220px; padding: 16px 34px; border-radius: 14px;
+  font-family: var(--sans); font-size: 18px; font-weight: 800; cursor: pointer;
+  border: 1px solid transparent; transition: all 0.18s;
+}
+.att-punch-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.att-punch-btn.in {
+  background: linear-gradient(180deg, #57f79a, var(--green)); color: #03230f;
+  box-shadow: 0 0 26px rgba(61,240,138,0.4);
+}
+.att-punch-btn.out {
+  background: linear-gradient(180deg, #ff8b96, var(--red)); color: #2b060b;
+  box-shadow: 0 0 26px rgba(255,93,108,0.4);
+}
+.att-punch-btn:not(:disabled):hover { transform: translateY(-2px); }
+.att-punch-err { min-height: 18px; color: var(--red); font-size: 13px; }
+
+.att-board-head {
+  display: flex; align-items: center; justify-content: space-between;
+  margin: 6px 2px 8px;
+}
+.att-board-title { font-size: 14px; font-weight: 700; color: var(--text); }
+.att-board-count { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+.att-board, .att-report-table { display: flex; flex-direction: column; gap: 4px; }
+.att-row {
+  display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 8px;
+  align-items: center; padding: 9px 13px;
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: 9px;
+  font-size: 13px; color: var(--text);
+}
+.att-report-row { grid-template-columns: 1.1fr 1.6fr 0.9fr 0.9fr 0.8fr 1fr; }
+.att-head-row {
+  background: transparent; border-color: transparent;
+  font-family: var(--mono); font-size: 11px; color: var(--muted); padding: 2px 13px;
+}
+.att-row.mine { border-color: var(--cyan); box-shadow: 0 0 14px rgba(54,230,212,0.15); }
+.att-row.open { border-right: 3px solid var(--amber); }
+.att-name { font-weight: 700; display: flex; align-items: center; gap: 7px; }
+.att-live-dot {
+  width: 8px; height: 8px; border-radius: 50%; background: var(--green);
+  box-shadow: 0 0 8px var(--green); animation: blink 2s infinite; flex-shrink: 0;
+}
+.att-in-now { color: var(--green); font-weight: 700; }
+.att-total { font-family: var(--mono); font-weight: 700; color: var(--cyan-br); }
+.att-empty, .att-report-table .my-req-empty { color: var(--muted); text-align: center; padding: 20px; font-size: 13px; }
+.att-sum-row { background: rgba(54,230,212,0.06); border-color: var(--line-strong); font-weight: 700; }
+.att-report-controls {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px;
+  font-size: 13px; color: var(--text-dim);
+}
+.att-report-controls input[type=date] {
+  background: rgba(8,14,28,0.7); border: 1px solid var(--line-strong); border-radius: 7px;
+  color: var(--text); padding: 6px 9px; font-family: var(--sans);
+}
+.att-fix-btn { padding: 5px 10px; font-size: 11px; }
+@media (max-width: 560px) {
+  .att-report-row { grid-template-columns: 1fr 1.2fr 0.8fr 0.8fr 0.7fr 0.9fr; font-size: 11px; }
+}

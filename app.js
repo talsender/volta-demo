@@ -142,6 +142,8 @@ function initAppDelegates() {
       recenterSim();
     } else if (action === 'toggle-sim-dock') {
       toggleSimDock();
+    } else if (action === 'attendance-punch') {
+      attendancePunch();
     }
   });
 
@@ -505,6 +507,132 @@ function wizardBack() {
   if (Wizard.back()) renderWizard();
 }
 
+// ============================================================
+// ATTENDANCE (time-clock) — punch + live daily board
+// ============================================================
+let _attEntries = [];        // today's entries (live from Firestore)
+let _attDate = null;         // date key currently subscribed to
+let _attUnsub = null;
+let _attBusy = false;
+
+function initAttendance() {
+  if (typeof Attendance === 'undefined') return;
+  attendanceResubscribe();
+  // Live totals tick + midnight rollover ("reset"): when the Israel-local
+  // date key changes, resubscribe — the new day starts with an empty board.
+  setInterval(() => {
+    if (Attendance.localDateKey() !== _attDate) attendanceResubscribe();
+    else renderAttendance();
+  }, 30000);
+}
+
+function attendanceResubscribe() {
+  _attDate = Attendance.localDateKey();
+  if (_attUnsub) { try { _attUnsub(); } catch (e) {} }
+  if (VoltaDB.ready()) {
+    _attUnsub = VoltaDB.subscribeAttendanceForDate(_attDate, list => {
+      _attEntries = list;
+      renderAttendance();
+    });
+  }
+  renderAttendance();
+}
+
+function attendanceMyEntry() {
+  const agent = Auth.getCurrentAgent();
+  if (!agent) return null;
+  return _attEntries.find(e => e.agentId === agent.id) || null;
+}
+
+async function attendancePunch() {
+  const errEl = document.getElementById('att-punch-err');
+  if (errEl) errEl.textContent = '';
+  const agent = Auth.getCurrentAgent();
+  if (!agent) { if (errEl) errEl.textContent = 'התחבר כדי להחתים נוכחות'; return; }
+  if (!VoltaDB.ready()) { if (errEl) errEl.textContent = 'אין חיבור לשרת — נסה שוב'; return; }
+  if (_attBusy) return;
+  _attBusy = true;
+  try {
+    const date = Attendance.localDateKey();
+    const id = Attendance.docId(date, agent.id);
+    // Re-read the entry so a double-click or second device can't corrupt it.
+    const existing = await VoltaDB.getAttendanceEntry(id);
+    const res = Attendance.applyPunch(existing ? existing.sessions : [], new Date().toISOString());
+    if (res.kind === 'full') { if (errEl) errEl.textContent = 'חריגה ממספר ההחתמות היומי'; return; }
+    await VoltaDB.setAttendanceEntry(id, {
+      date, agentId: agent.id, agentName: agent.name || '',
+      sessions: res.sessions, updatedAt: Date.now(),
+    });
+  } catch (e) {
+    if (errEl) errEl.textContent = 'ההחתמה נכשלה: ' + ((e && e.message) || 'שגיאה');
+  } finally {
+    _attBusy = false;
+  }
+}
+
+function renderAttendance() {
+  const board = document.getElementById('att-board');
+  if (!board || typeof Attendance === 'undefined') return;
+  const now = Date.now();
+  const agent = Auth.getCurrentAgent();
+
+  const dateEl = document.getElementById('att-board-date');
+  if (dateEl) dateEl.textContent = _attDate || Attendance.localDateKey();
+
+  // My punch button + status
+  const btn = document.getElementById('att-punch-btn');
+  const statusEl = document.getElementById('att-my-status');
+  if (btn && statusEl) {
+    if (!agent) {
+      btn.disabled = true; btn.textContent = 'התחבר כדי להחתים';
+      btn.className = 'att-punch-btn';
+      statusEl.textContent = 'נוכחות נרשמת לפי המשתמש המחובר';
+    } else {
+      const mine = attendanceMyEntry();
+      const sum = Attendance.computeSummary(mine ? mine.sessions : [], now, true);
+      btn.disabled = false;
+      if (sum.open) {
+        btn.textContent = '⏹ החתם יציאה';
+        btn.className = 'att-punch-btn out';
+        const openIn = (mine.sessions.find(s => !s.out) || {}).in;
+        statusEl.innerHTML = 'אתה <b>בפנים</b> מ-' + Attendance.fmtTime(Date.parse(openIn)) +
+          ' · סה"כ היום: <b>' + Attendance.fmtDur(sum.totalMs) + '</b>';
+      } else {
+        btn.textContent = '▶ החתם כניסה';
+        btn.className = 'att-punch-btn in';
+        statusEl.innerHTML = sum.totalMs > 0
+          ? 'אתה <b>בחוץ</b> · סה"כ היום: <b>' + Attendance.fmtDur(sum.totalMs) + '</b>'
+          : 'עוד לא החתמת היום';
+      }
+    }
+  }
+
+  // Board — everyone who punched today, sorted by first clock-in
+  const rows = _attEntries.map(e => {
+    const sum = Attendance.computeSummary(e.sessions, now, true);
+    return { name: e.agentName || e.agentId, mine: agent && e.agentId === agent.id, sum };
+  }).filter(r => r.sum.firstIn !== null)
+    .sort((a, b) => a.sum.firstIn - b.sum.firstIn);
+
+  const countEl = document.getElementById('att-board-count');
+  if (countEl) countEl.textContent = rows.length ? rows.length + ' נציגים' : '';
+
+  if (!rows.length) {
+    board.innerHTML = '<div class="att-empty">אף אחד עוד לא החתים היום</div>';
+    return;
+  }
+  board.innerHTML = `
+    <div class="att-row att-head-row">
+      <span>נציג</span><span>כניסה</span><span>יציאה</span><span>סה"כ</span>
+    </div>` + rows.map(r => `
+    <div class="att-row${r.mine ? ' mine' : ''}${r.sum.open ? ' open' : ''}">
+      <span class="att-name">${r.sum.open ? '<span class="att-live-dot"></span>' : ''}${escHtml(r.name)}</span>
+      <span>${Attendance.fmtTime(r.sum.firstIn)}</span>
+      <span>${r.sum.open ? '<span class="att-in-now">בפנים</span>' : Attendance.fmtTime(r.sum.lastOut)}</span>
+      <span class="att-total">${Attendance.fmtDur(r.sum.totalMs)}</span>
+    </div>`).join('');
+}
+
 function renderWizardResult() {
   const s = Wizard.getState();
 
@@ -681,6 +809,7 @@ function renderAgentBar() {
   if (typeof subscribeMyRequestsForCurrentAgent === 'function') subscribeMyRequestsForCurrentAgent();
   if (window.Admin && Admin.refreshSubscriptions) Admin.refreshSubscriptions();
   if (window.Admin && Admin.refreshBadge) Admin.refreshBadge();
+  if (typeof renderAttendance === 'function') renderAttendance(); // punch button follows login state
 }
 async function attemptLogin() {
   const email = document.getElementById('login-email').value;
@@ -1035,6 +1164,7 @@ async function init() {
   initDockCompass();
   initSimDock();
   initKnowledgeBase();
+  initAttendance();
   renderOfferings();
 }
 
