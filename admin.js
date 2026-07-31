@@ -428,6 +428,7 @@ const Admin = (() => {
         <input id="new-agent-password" class="login-input sm" type="${passwordType}" placeholder="${passwordPlaceholder}">
         <input id="new-agent-phone" class="login-input sm" maxlength="40" placeholder="טלפון (אופציונלי)">
         <select id="new-agent-role" class="login-input sm">${roleOptions('agent')}</select>
+        <label class="plan-access-label"><input type="checkbox" id="new-agent-can-plan"> תכנון מפורט (3D)</label>
         <button class="btn primary sm" data-admin-action="add-agent">הוסף נציג</button>
       </div>
       <div id="agent-add-error" class="req-error"></div>
@@ -457,9 +458,13 @@ const Admin = (() => {
     const idAttr = escHtml(a.id || '');
     const roleClass = ROLE_CLASS[a.role] || 'agent';
     const removeLabel = authMode() === 'firebase' ? 'ארכב' : 'מחק';
+    const planBadge = a.canDetailedPlan === true
+      ? '<span class="role-badge role-manager" title="הרשאת תכנון מפורט הוענקה ידנית">🧩 תכנון</span>'
+      : (a.canDetailedPlan === false ? '<span class="role-badge" title="תכנון מפורט חסום ידנית">🚫 תכנון</span>' : '');
     return `<div class="agent-row ${a.active ? '' : 'inactive'}">
       <span class="ag-name">${escHtml(a.name || '')}</span>
       <span class="role-badge role-${roleClass}">${escHtml(Auth.roleLabel(a.role))}</span>
+      ${planBadge}
       <span class="ag-code">${escHtml(a.email || '')}</span>
       <span class="ag-phone">${escHtml(a.phone || '')}</span>
       <span class="ag-state">${a.active ? 'פעיל' : 'מושבת'}${a.lastLoginAt ? ' · כניסה ' + fmtDate(a.lastLoginAt) : ''}</span>
@@ -480,6 +485,7 @@ const Admin = (() => {
       <input id="edit-password-${safeId}" class="login-input sm" type="password" placeholder="סיסמה חדשה (ריק = ללא שינוי)">
       <input id="edit-phone-${safeId}" class="login-input sm" maxlength="40" value="${escHtml(a.phone || '')}" placeholder="טלפון">
       <select id="edit-role-${safeId}" class="login-input sm">${roleOptions(a.role)}</select>
+      <label class="plan-access-label"><input type="checkbox" id="edit-can-plan-${safeId}"${a.canDetailedPlan ? ' checked' : ''}> תכנון מפורט (3D)</label>
       <span class="ag-actions">
         <button class="btn primary sm" data-admin-action="save-edit" data-id="${idAttr}">שמור</button>
         <button class="btn reset sm" data-admin-action="cancel-edit">ביטול</button>
@@ -514,6 +520,7 @@ const Admin = (() => {
         email: fields.email.toLowerCase(),
         phone: fields.phone,
         role: fields.role,
+        canDetailedPlan: document.getElementById('new-agent-can-plan').checked,
         active: true,
         createdAt: Date.now(),
         lastLoginAt: null,
@@ -527,6 +534,7 @@ const Admin = (() => {
       ['new-agent-name', 'new-agent-email', 'new-agent-password', 'new-agent-phone'].forEach(id => {
         const el = document.getElementById(id); if (el) el.value = '';
       });
+      const planCb = document.getElementById('new-agent-can-plan'); if (planCb) planCb.checked = false;
       return;
     }
     if (!fields.password) { err.textContent = 'סיסמה חובה'; return; }
@@ -537,7 +545,9 @@ const Admin = (() => {
     const ref = await VoltaDB.addAgent({
       name: fields.name, email: fields.email.toLowerCase(),
       passwordHash: passwordPatch.passwordHash, password: null,
-      phone: fields.phone, role: fields.role, active: true, createdAt: Date.now(), lastLoginAt: null,
+      phone: fields.phone, role: fields.role,
+      canDetailedPlan: document.getElementById('new-agent-can-plan').checked,
+      active: true, createdAt: Date.now(), lastLoginAt: null,
     });
     audit('agent.create', 'agent', ref && ref.id, {
       name: fields.name,
@@ -547,6 +557,7 @@ const Admin = (() => {
     ['new-agent-name', 'new-agent-email', 'new-agent-password', 'new-agent-phone'].forEach(id => {
       const el = document.getElementById(id); if (el) el.value = '';
     });
+    const planCb = document.getElementById('new-agent-can-plan'); if (planCb) planCb.checked = false;
   }
 
   async function saveEdit(id) {
@@ -559,6 +570,7 @@ const Admin = (() => {
       password: document.getElementById('edit-password-' + safeId).value,
       phone: document.getElementById('edit-phone-' + safeId).value.trim(),
       role: document.getElementById('edit-role-' + safeId).value,
+      canDetailedPlan: document.getElementById('edit-can-plan-' + safeId).checked,
     };
     const err = document.getElementById('edit-error-' + safeId);
     if (authMode() === 'firebase' && fields.password) {
@@ -572,7 +584,7 @@ const Admin = (() => {
       if (err) err.textContent = 'לא ניתן לשנות תפקיד של המנהל הפעיל האחרון';
       return;
     }
-    const patch = { name: fields.name, email: fields.email.toLowerCase(), phone: fields.phone, role: fields.role };
+    const patch = { name: fields.name, email: fields.email.toLowerCase(), phone: fields.phone, role: fields.role, canDetailedPlan: fields.canDetailedPlan };
     if (fields.password) {
       const passwordPatch = await Auth.hashPassword(fields.password);
       patch.passwordHash = passwordPatch.passwordHash;
