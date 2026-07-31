@@ -170,10 +170,17 @@ const Wizard = (() => {
       ],
     },
     {
-      id: 'roof-type',
-      text: 'מה סוג/י הגג?',
-      hint: 'אפשר לבחור כמה חלקים — לדוגמה פרגולה + בטון שטוח',
-      type: 'roof-grid-multi',
+      id: 'eligibility',
+      text: 'בדיקת התאמה ראשונית',
+      hint: 'שאל את הלקוח את כל חמש השאלות ברצף, ואז סמן הכל ולחץ המשך',
+      type: 'eligibility-checklist',
+      subIds: ['property-type', 'ownership', 'permit', 'connection', 'meter'],
+    },
+    {
+      id: 'roof-and-sizes',
+      text: 'מה סוג/י הגג — ומה השטח המשוער של כל חלק?',
+      hint: 'בחר סוג, ואז הזן הערכת שטח לצידו. אפשר לבחור כמה חלקים — לדוגמה פרגולה + בטון שטוח.',
+      type: 'roof-and-sizes',
       get options() { return roofTypeOptions(); },
     },
     {
@@ -188,13 +195,6 @@ const Wizard = (() => {
         { label: '❓ לא יודע', value: 'unknown', flagClass: 'warn',
           action: 'flag', flagMsg: 'גיל גג רעפים לא ידוע — המומחה יבדוק' },
       ],
-    },
-    {
-      id: 'material-sizes',
-      text: 'מה השטח המשוער של כל חלק בגג?',
-      hint: 'ניתן לתת הערכה גסה לכל חומר — סכום השטחים יחושב אוטומטית.',
-      type: 'material-sizes',
-      options: [],
     },
     {
       id: 'roof-orientation',
@@ -222,10 +222,59 @@ const Wizard = (() => {
   const SHADING_PARTIAL_FLAG = 'הצללה חלקית על הגג — המומחה יעריך השפעה על יעילות';
   const SHADING_HEAVY_NOTE = 'הצללה משמעותית — יש לדון עם מנהל לפני קידום';
 
-  const MAIN_FLOW = ['property-type','ownership','permit','connection','meter','roof-type','material-sizes','roof-orientation','shading'];
+  const MAIN_FLOW = ['eligibility','roof-and-sizes','roof-orientation','shading'];
 
   function getQuestion(id) {
     return QUESTIONS.find(q => q.id === id);
+  }
+
+  function getQuestionById(id) { return getQuestion(id); }
+
+  // Merge the five binary eligibility gates into one submission. Precedence
+  // matches the original sequential flow exactly: walk the five in order,
+  // and whichever is the FIRST with a stop or follow-up action determines the
+  // outcome — later answers in the order are never "reached" for that purpose,
+  // same as if they'd been asked one screen at a time. Flags are accumulated
+  // from ALL five regardless of where the stop/follow-up point falls: the rep
+  // already collected every answer in one go, so there's strictly more useful
+  // context for the manager than the old one-screen-at-a-time flow ever showed.
+  function confirmEligibility(selections) {
+    const ids = getQuestion('eligibility').subIds;
+    const missing = ids.filter(id => selections == null || selections[id] == null);
+    if (missing.length) return { done: false, error: 'יש לענות על כל השאלות' };
+
+    snapshot();
+    const chosen = ids.map(id => ({ id, opt: getQuestion(id).options[selections[id]] }));
+    chosen.forEach(({ id, opt }) => {
+      state.answers.push({ questionId: id, label: opt.label, value: opt.value, flagClass: opt.flagClass || 'ok' });
+    });
+
+    const firstBlocking = chosen.find(({ opt }) => opt.action === 'stop' || opt.action === 'follow-up');
+    if (firstBlocking) {
+      const { opt } = firstBlocking;
+      if (opt.action === 'stop') {
+        state.outcome = 'stop';
+        state.stopReason = opt.stopReason;
+        state.stopScript = opt.stopScript;
+      } else {
+        state.outcome = 'follow-up';
+        state.followUpNote = opt.followUpNote;
+      }
+      return { done: true };
+    }
+
+    chosen.forEach(({ opt }) => { if (opt.action === 'flag' && opt.flagMsg) state.flags.push(opt.flagMsg); });
+    if (chosen.some(({ id }) => id === 'property-type')) {
+      state.propertyType = chosen.find(({ id }) => id === 'property-type').opt.value;
+    }
+
+    state.step++;
+    const flow = currentFlow();
+    if (state.step >= flow.length) {
+      state.outcome = state.flags.length > 0 ? 'go-notes' : 'go';
+      return { done: true };
+    }
+    return { done: false };
   }
 
   // Undo history: a deep snapshot is pushed before every committing action
@@ -254,7 +303,7 @@ const Wizard = (() => {
     const hasTiles = state.selectedRoofTypes.some(t => t.value === 'tiles') ||
       state.answers.some(a => a.questionId === 'roof-type' && a.value === 'tiles');
     if (hasTiles) {
-      const idx = flow.indexOf('material-sizes');
+      const idx = flow.indexOf('roof-and-sizes');
       flow.splice(idx, 0, 'tiles-age');
     }
     return flow;
@@ -262,7 +311,7 @@ const Wizard = (() => {
 
   // Toggle a roof type in the multi-select (called from UI)
   function toggleRoofType(optionIndex) {
-    const q = QUESTIONS.find(q => q.id === 'roof-type');
+    const q = QUESTIONS.find(q => q.id === 'roof-and-sizes');
     const opt = q.options[optionIndex];
     const existing = state.selectedRoofTypes.findIndex(t => t.value === opt.value);
     if (existing >= 0) {
@@ -466,7 +515,7 @@ const Wizard = (() => {
     };
   }
 
-  return { reset, back, canBack, currentQuestion, currentFlow, answer, getState, toggleRoofType, confirmRoofTypes, toggleObstacle, confirmObstacles, selectedMaterials, answerMaterialSizes, getSimInputs };
+  return { reset, back, canBack, currentQuestion, currentFlow, answer, getState, getQuestionById, confirmEligibility, toggleRoofType, confirmRoofTypes, toggleObstacle, confirmObstacles, selectedMaterials, answerMaterialSizes, getSimInputs };
 })();
 
 if (typeof module !== 'undefined' && module.exports) {
