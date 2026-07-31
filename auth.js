@@ -14,7 +14,7 @@ const Auth = (() => {
   const CAPS = {
     agent:   { request: true },
     lead:    { request: true, reviewRequests: true },
-    manager: { request: true, reviewRequests: true, manageAgents: true, roofSettings: true },
+    manager: { request: true, reviewRequests: true, manageAgents: true, roofSettings: true, detailedPlanning: true },
   };
 
   function roleLabel(role) { return ROLE_LABELS[role] || role || ''; }
@@ -126,6 +126,9 @@ const Auth = (() => {
 
   function can(agent, capability) {
     if (!agent || !agent.role) return false;
+    if (capability === 'detailedPlanning' && typeof agent.canDetailedPlan === 'boolean') {
+      return agent.canDetailedPlan;
+    }
     const caps = CAPS[agent.role];
     return !!(caps && caps[capability]);
   }
@@ -181,12 +184,12 @@ const Auth = (() => {
 
   function setCurrentAgent(agent) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({
-      id: agent.id, name: agent.name, role: agent.role, email: agent.email,
+      id: agent.id, name: agent.name, role: agent.role, email: agent.email, canDetailedPlan: agent.canDetailedPlan,
     }));
   }
 
   function publicAgent(agent) {
-    return agent ? { id: agent.id, name: agent.name, role: agent.role, email: agent.email } : null;
+    return agent ? { id: agent.id, name: agent.name, role: agent.role, email: agent.email, canDetailedPlan: agent.canDetailedPlan } : null;
   }
 
   function reconcileCurrentAgent(agents) {
@@ -209,7 +212,7 @@ const Auth = (() => {
   return {
     findAgentByCredentials, findAgentByCredentialsAsync, hashPassword, verifyPassword,
     can, roleLabel, isLastActiveManager, validFirebaseUid, validateAgentFields,
-    getCurrentAgent, setCurrentAgent, reconcileCurrentAgent, logout,
+    getCurrentAgent, setCurrentAgent, publicAgent, reconcileCurrentAgent, logout,
     ROLES, ROLE_LABELS, CAPS,
   };
 })();
