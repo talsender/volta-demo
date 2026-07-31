@@ -30,7 +30,7 @@ const Requests = (() => {
   function buildRequest({ type, agent, subject, reason, context, requestedStatus }) {
     if (!agent || !agent.id) throw new Error('agent required');
     if (!reason || !reason.trim()) throw new Error('reason required');
-    if (type !== 'settlement' && type !== 'roof') throw new Error('invalid type');
+    if (!['settlement', 'roof', 'planning'].includes(type)) throw new Error('invalid type');
     if (type === 'settlement' && !REQUESTABLE_STATUSES.includes(requestedStatus)) {
       throw new Error('invalid requestedStatus');
     }

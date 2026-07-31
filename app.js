@@ -142,6 +142,8 @@ function initAppDelegates() {
       recenterSim();
     } else if (action === 'toggle-sim-dock') {
       toggleSimDock();
+    } else if (action === 'send-planning-handoff') {
+      sendPlanningHandoff();
     } else if (action === 'attendance-punch') {
       attendancePunch();
     }
@@ -161,6 +163,7 @@ function renderWizard() {
   const container = document.getElementById('wizard-container');
   const s = Wizard.getState();
   const q = Wizard.currentQuestion();
+  if (typeof updateSimDockAccess === 'function') updateSimDockAccess();
 
   if (s.outcome) {
     container.innerHTML = renderWizardResult();
@@ -810,6 +813,39 @@ function renderAgentBar() {
   if (window.Admin && Admin.refreshSubscriptions) Admin.refreshSubscriptions();
   if (window.Admin && Admin.refreshBadge) Admin.refreshBadge();
   if (typeof renderAttendance === 'function') renderAttendance(); // punch button follows login state
+  if (typeof updateSimDockAccess === 'function') updateSimDockAccess();
+}
+
+function wizardRoofSubjectForHandoff() {
+  return (typeof wizardRoofSubject === 'function') ? wizardRoofSubject() : '';
+}
+
+function updateSimDockAccess() {
+  const openBtn = document.getElementById('se-open-btn');
+  const handoffBtn = document.getElementById('se-handoff-btn');
+  if (!openBtn) return;
+  const agent = Auth.getCurrentAgent();
+  const atOutcome = !!(Wizard.getState().outcome);
+  const allowed = atOutcome && !!(agent && Auth.can(agent, 'detailedPlanning'));
+  openBtn.classList.toggle('hidden', !allowed);
+  if (handoffBtn) handoffBtn.classList.toggle('hidden', !(atOutcome && !allowed));
+}
+
+async function sendPlanningHandoff() {
+  const agent = Auth.getCurrentAgent();
+  if (!agent) return;
+  if (!VoltaDB.ready()) { alert('אין חיבור לשרת — נסה שוב'); return; }
+  try {
+    const req = Requests.buildRequest({
+      type: 'planning', agent, subject: wizardRoofSubjectForHandoff(),
+      reason: 'העברה אוטומטית לתכנון תלת-ממד מפורט לאחר הכשרת האשף.',
+      context: { outcome: Wizard.getState().outcome },
+    });
+    await VoltaDB.addRequest(req);
+    alert('המקרה נשלח לתכנון טכני ✓');
+  } catch (e) {
+    alert('שליחה נכשלה: ' + ((e && e.message) || 'שגיאה'));
+  }
 }
 async function attemptLogin() {
   const email = document.getElementById('login-email').value;
@@ -1042,6 +1078,7 @@ function initRequestModal() {
 // ============================================================
 // MY REQUESTS
 // ============================================================
+const REQ_TYPE_LABEL = { settlement: '📍 יישוב', roof: '🏠 גג', planning: '📤 תכנון' };
 let _myRequests = [];
 let _myReqUnsub = null;
 const STATUS_LABEL = { pending: '⏳ ממתין', approved: '✅ אושר', rejected: '❌ נדחה' };
@@ -1057,7 +1094,7 @@ function renderMyRequests() {
     const res = r.resolution ? ` · ${RES_LABEL[r.resolution] || ''}` : '';
     const note = r.managerNote ? `<div class="mr-note">💬 ${escHtml(r.managerNote)}</div>` : '';
     return `<div class="my-req-row ${r.status}">
-      <div class="mr-head"><span class="mr-type">${r.type === 'roof' ? '🏠 גג' : '📍 יישוב'}</span>
+      <div class="mr-head"><span class="mr-type">${REQ_TYPE_LABEL[r.type] || r.type}</span>
         <span class="mr-status">${STATUS_LABEL[r.status] || r.status}${res}</span></div>
       <div class="mr-subject">${escHtml(r.subject || '')}</div>
       ${r.type === 'settlement' && r.requestedStatus

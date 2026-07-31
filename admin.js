@@ -23,6 +23,7 @@ const Admin = (() => {
     'agent.delete': 'מחיקת נציג',
     'roofConfig.update': 'עדכון הגדרות גג',
   };
+  const REQ_TYPE_LABEL = { settlement: '📍 יישוב', roof: '🏠 גג', planning: '📤 תכנון' };
 
   function authMode() {
     return (typeof CONFIG !== 'undefined' && CONFIG.AUTH_MODE === 'firebase') ? 'firebase' : 'legacy';
@@ -341,7 +342,7 @@ const Admin = (() => {
         </div>`
         : `<div class="req-row-status">${escHtml(r.status)} ${escHtml(r.resolution || '')}${r.managerNote ? ' · ' + escHtml(r.managerNote) : ''}</div>`;
       return `<div class="admin-req-row ${REQ_STATUS_CLASS[r.status] || ''}">
-        <div class="ar-head"><span>${r.type === 'roof' ? '🏠 גג' : '📍 יישוב'}</span>
+        <div class="ar-head"><span>${REQ_TYPE_LABEL[r.type] || r.type}</span>
           <span class="ar-agent">${escHtml(r.agentName || '')}</span></div>
         <div class="ar-subject">${escHtml(r.subject || '')}</div>
         ${r.type === 'settlement' && r.requestedStatus
