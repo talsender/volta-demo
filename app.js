@@ -161,6 +161,8 @@ function initAppDelegates() {
 // ============================================================
 // WIZARD RENDERING
 // ============================================================
+let _roofSizeInputs = {}; // materialId -> last-typed size string, survives re-render across roof-type toggles
+
 function renderWizard() {
   const container = document.getElementById('wizard-container');
   const s = Wizard.getState();
@@ -389,7 +391,7 @@ function renderQuestionInput(q) {
     const sizeRows = selected.map(t => `
       <div class="msize-row">
         <span class="msize-label">${escHtml(t.label)}</span>
-        <input type="number" min="0" max="1000" value="40" inputmode="numeric"
+        <input type="number" min="0" max="1000" value="${_roofSizeInputs[t.value] != null ? _roofSizeInputs[t.value] : 40}" inputmode="numeric"
           class="msize-input" data-id="${escHtml(t.value)}" data-app-input="material-size">
         <span class="msize-unit">מ"ר</span>
       </div>`).join('');
@@ -467,6 +469,7 @@ function readMaterialSizes() {
 
 function updateMaterialSizes() {
   const sizes = readMaterialSizes();
+  sizes.forEach(s => { _roofSizeInputs[s.materialId] = s.size; });
   const sum = sizes.reduce((a, s) => a + s.size, 0);
   const totalEl = document.getElementById('msize-total');
   if (totalEl) totalEl.textContent = `סה"כ: ${sum} מ"ר`;
@@ -537,6 +540,7 @@ function wizardConfirmRoofSizes() {
 
 function resetWizard() {
   Wizard.reset();
+  _roofSizeInputs = {};
   renderWizard();
 }
 

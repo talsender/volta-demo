@@ -102,3 +102,22 @@ test('confirmRoofTypesAndSizes requires at least one roof type', () => {
   assert.strictEqual(r.done, false);
   assert.ok(r.error);
 });
+
+test('confirmRoofTypesAndSizes stops when total size is too small', () => {
+  Wizard.reset();
+  Wizard.confirmEligibility(ALL_OK);
+  Wizard.toggleRoofType(0); // concrete
+  const r = Wizard.confirmRoofTypesAndSizes({ concrete: 10 }); // well under the 60 sqm borderline threshold
+  assert.strictEqual(r.done, true);
+  assert.strictEqual(Wizard.getState().outcome, 'stop');
+});
+
+test('confirmRoofTypesAndSizes escalates for a material with baseAction escalate', () => {
+  Wizard.reset();
+  Wizard.confirmEligibility(ALL_OK);
+  Wizard.toggleRoofType(3); // insulated — baseAction: 'escalate' in DEFAULT_ROOF_CONFIG (config.js)
+  const r = Wizard.confirmRoofTypesAndSizes({ insulated: 80 });
+  assert.strictEqual(r.done, true);
+  assert.strictEqual(Wizard.getState().outcome, 'escalate');
+  assert.ok(Wizard.getState().escalateNote);
+});
