@@ -329,7 +329,7 @@ const Admin = (() => {
 
     pane.innerHTML = filterBar + list.map(r => {
       const idAttr = escHtml(r.id || '');
-      const canPermanent = _ctx === 'manager';
+      const canPermanent = _ctx === 'manager' && (r.type === 'settlement' || r.type === 'roof');
       const permLabel = r.type === 'settlement' ? 'אשר — שינוי קבוע' : 'אשר — קבוע (גג)';
       const permanentAction = canPermanent
         ? `<button class="btn primary sm" data-admin-action="approve" data-id="${idAttr}" data-resolution="permanent">${permLabel}</button>`

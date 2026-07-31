@@ -828,7 +828,7 @@ function updateSimDockAccess() {
   const atOutcome = !!(Wizard.getState().outcome);
   const allowed = atOutcome && !!(agent && Auth.can(agent, 'detailedPlanning'));
   openBtn.classList.toggle('hidden', !allowed);
-  if (handoffBtn) handoffBtn.classList.toggle('hidden', !(atOutcome && !allowed));
+  if (handoffBtn) handoffBtn.classList.toggle('hidden', !(atOutcome && agent && !allowed));
 }
 
 async function sendPlanningHandoff() {
