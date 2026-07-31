@@ -1177,7 +1177,7 @@ input[type=range]::-webkit-slider-thumb {
 
 .agent-add {
   display: grid;
-  grid-template-columns: minmax(90px,1fr) minmax(230px,2.4fr) minmax(90px,1fr) minmax(90px,1fr) auto auto;
+  grid-template-columns: minmax(90px,1fr) minmax(230px,2.4fr) minmax(90px,1fr) minmax(90px,1fr) auto auto auto;
   gap: 8px; align-items: center; margin-bottom: 6px;
 }
 .agent-add .login-input.sm { width: 100%; margin: 0; }
@@ -1188,7 +1188,7 @@ input[type=range]::-webkit-slider-thumb {
   background: var(--void); margin-bottom: 8px;
 }
 .agent-row.inactive { opacity: 0.55; }
-.agent-row.editing { display: grid; grid-template-columns: minmax(90px,1fr) minmax(230px,2.4fr) minmax(90px,1fr) minmax(90px,1fr) auto auto; gap: 8px; }
+.agent-row.editing { display: grid; grid-template-columns: minmax(90px,1fr) minmax(230px,2.4fr) minmax(90px,1fr) minmax(90px,1fr) auto auto auto; gap: 8px; }
 .agent-row.editing .login-input.sm { width: 100%; margin: 0; }
 .agent-row.editing .req-error { grid-column: 1 / -1; }
 .admin-empty-note { text-align: right; padding: 8px 0 14px; }
