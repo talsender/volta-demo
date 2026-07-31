@@ -249,6 +249,11 @@ const Wizard = (() => {
       state.answers.push({ questionId: id, label: opt.label, value: opt.value, flagClass: opt.flagClass || 'ok' });
     });
 
+    chosen.forEach(({ opt }) => { if (opt.action === 'flag' && opt.flagMsg) state.flags.push(opt.flagMsg); });
+    if (chosen.some(({ id }) => id === 'property-type')) {
+      state.propertyType = chosen.find(({ id }) => id === 'property-type').opt.value;
+    }
+
     const firstBlocking = chosen.find(({ opt }) => opt.action === 'stop' || opt.action === 'follow-up');
     if (firstBlocking) {
       const { opt } = firstBlocking;
@@ -261,11 +266,6 @@ const Wizard = (() => {
         state.followUpNote = opt.followUpNote;
       }
       return { done: true };
-    }
-
-    chosen.forEach(({ opt }) => { if (opt.action === 'flag' && opt.flagMsg) state.flags.push(opt.flagMsg); });
-    if (chosen.some(({ id }) => id === 'property-type')) {
-      state.propertyType = chosen.find(({ id }) => id === 'property-type').opt.value;
     }
 
     state.step++;

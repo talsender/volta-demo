@@ -64,3 +64,21 @@ test('back() undoes a confirmEligibility stop in one step', () => {
   assert.strictEqual(Wizard.getState().outcome, null);
   assert.strictEqual(Wizard.getState().answers.length, 0);
 });
+
+test('flags are accumulated even when submission ends in stop', () => {
+  Wizard.reset();
+  // property-type index 1 = condo-private (flag). ownership index 1 = stop.
+  const r = Wizard.confirmEligibility({ 'property-type': 1, ownership: 1, permit: 0, connection: 0, meter: 0 });
+  assert.strictEqual(r.done, true);
+  assert.strictEqual(Wizard.getState().outcome, 'stop');
+  assert.strictEqual(Wizard.getState().flags.length, 1);
+});
+
+test('first blocking in fixed order wins — permit follow-up before connection stop', () => {
+  Wizard.reset();
+  // permit index 2 = "אין" (follow-up, position 3 in order). connection index 1 = stop (position 4 in order).
+  // Since permit comes FIRST in the order, outcome should be 'follow-up', not 'stop'.
+  const r = Wizard.confirmEligibility({ 'property-type': 0, ownership: 0, permit: 2, connection: 1, meter: 0 });
+  assert.strictEqual(r.done, true);
+  assert.strictEqual(Wizard.getState().outcome, 'follow-up');
+});
