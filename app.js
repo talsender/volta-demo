@@ -120,8 +120,12 @@ function initAppDelegates() {
       wizardAnswer(parseInt(actionEl.dataset.optionIndex, 10));
     } else if (action === 'wizard-toggle-roof') {
       wizardToggleRoof(parseInt(actionEl.dataset.optionIndex, 10));
-    } else if (action === 'wizard-confirm-roofs') {
-      wizardConfirmRoofs();
+    } else if (action === 'eligibility-pick') {
+      eligibilityPick(actionEl.dataset.qid, parseInt(actionEl.dataset.optionIndex, 10));
+    } else if (action === 'wizard-confirm-eligibility') {
+      wizardConfirmEligibility();
+    } else if (action === 'wizard-confirm-roof-sizes') {
+      wizardConfirmRoofSizes();
     } else if (action === 'wizard-toggle-obstacle') {
       wizardToggleObstacle(parseInt(actionEl.dataset.optionIndex, 10));
     } else if (action === 'wizard-confirm-obstacles') {
@@ -130,8 +134,6 @@ function initAppDelegates() {
       compassSet(parseInt(actionEl.dataset.deg, 10));
     } else if (action === 'wizard-orientation-confirm') {
       wizardOrientationConfirm();
-    } else if (action === 'material-sizes-confirm') {
-      materialSizesConfirm();
     } else if (action === 'open-roof-request') {
       openRoofRequest();
     } else if (action === 'dock-compass-set') {
@@ -213,10 +215,10 @@ function renderWizard() {
   if (q && q.type === 'compass') {
     setTimeout(() => initRoofCompass(180), 0);
   }
-  if (q && q.type === 'material-sizes') {
+  if (q && q.type === 'roof-and-sizes' && Wizard.getState().selectedRoofTypes.length) {
     setTimeout(() => updateMaterialSizes(), 0);
   }
-  setTimeout(() => updateSimDock(q && q.type === 'material-sizes' ? readMaterialSizes() : null), 0);
+  setTimeout(() => updateSimDock(q && q.type === 'roof-and-sizes' ? readMaterialSizes() : null), 0);
 }
 
 // ============================================================
@@ -361,6 +363,45 @@ function labelForId(id) {
 }
 
 function renderQuestionInput(q) {
+  if (q.type === 'eligibility-checklist') {
+    const groups = q.subIds.map(id => {
+      const sq = Wizard.getQuestionById(id);
+      const opts = sq.options.map((opt, oi) =>
+        `<button class="answer-btn sm" data-app-action="eligibility-pick" data-qid="${id}" data-option-index="${oi}">${escHtml(opt.label)}</button>`
+      ).join('');
+      return `<div class="elig-row" data-qid="${id}">
+        <div class="elig-q">${escHtml(sq.text)}</div>
+        <div class="answer-row">${opts}</div>
+      </div>`;
+    }).join('');
+    return `<div class="elig-checklist">${groups}</div>
+      <div id="elig-error" class="roof-multi-error"></div>
+      <div class="btn-row mt-14">
+        <button class="btn primary" data-app-action="wizard-confirm-eligibility">המשך ←</button>
+      </div>`;
+  }
+  if (q.type === 'roof-and-sizes') {
+    const selected = Wizard.getState().selectedRoofTypes;
+    const btns = q.options.map((opt, i) => {
+      const isSel = selected.some(t => t.value === opt.value);
+      return `<button class="roof-btn ${opt.flagClass}${isSel ? ' selected' : ''}" data-app-action="wizard-toggle-roof" data-option-index="${i}">${escHtml(opt.label)}</button>`;
+    }).join('');
+    const sizeRows = selected.map(t => `
+      <div class="msize-row">
+        <span class="msize-label">${escHtml(t.label)}</span>
+        <input type="number" min="0" max="1000" value="40" inputmode="numeric"
+          class="msize-input" data-id="${escHtml(t.value)}" data-app-input="material-size">
+        <span class="msize-unit">מ"ר</span>
+      </div>`).join('');
+    return `<div class="roof-grid">${btns}</div>
+      <div id="roof-multi-error" class="roof-multi-error"></div>
+      ${selected.length ? `<div class="msize-list mt-14">${sizeRows}</div>
+        <div class="msize-total" id="msize-total">סה"כ: 0 מ"ר</div>
+        <div class="msize-verdict ok" id="msize-verdict"></div>` : ''}
+      <div class="btn-row mt-14">
+        <button class="btn primary" data-app-action="wizard-confirm-roof-sizes">אשר גגות ומידות ←</button>
+      </div>`;
+  }
   if (q.type === 'buttons') {
     return '<div class="answer-row">' +
       q.options.map((opt, i) =>
@@ -374,18 +415,6 @@ function renderQuestionInput(q) {
         `<button class="roof-btn ${opt.flagClass}" data-app-action="wizard-answer" data-option-index="${i}">${escHtml(opt.label)}</button>`
       ).join('') +
       '</div>';
-  }
-  if (q.type === 'roof-grid-multi') {
-    const selected = Wizard.getState().selectedRoofTypes;
-    const btns = q.options.map((opt, i) => {
-      const isSel = selected.some(t => t.value === opt.value);
-      return `<button class="roof-btn ${opt.flagClass}${isSel ? ' selected' : ''}" data-app-action="wizard-toggle-roof" data-option-index="${i}">${escHtml(opt.label)}</button>`;
-    }).join('');
-    return `<div class="roof-grid">${btns}</div>
-      <div class="btn-row mt-14">
-        <button class="btn primary" data-app-action="wizard-confirm-roofs">אשר בחירת גג</button>
-      </div>
-      <div id="roof-multi-error" class="roof-multi-error"></div>`;
   }
   if (q.type === 'obstacle-multi') {
     const selected = Wizard.getState().selectedObstacles;
@@ -416,24 +445,6 @@ function renderQuestionInput(q) {
       <div class="compass-verdict ok" id="compass-verdict"></div>
       <div class="btn-row mt-14">
         <button class="btn primary" data-app-action="wizard-orientation-confirm">אשר כיוון גג ←</button>
-      </div>`;
-  }
-  if (q.type === 'material-sizes') {
-    const mats = Wizard.selectedMaterials();
-    const rows = mats.map((m, i) => `
-      <div class="msize-row">
-        <span class="msize-label">${escHtml(m.emoji)} ${escHtml(m.label)}</span>
-        <input type="number" min="0" max="1000" value="40" inputmode="numeric"
-          class="msize-input" id="msize-${i}" data-id="${escHtml(m.id)}"
-          data-app-input="material-size">
-        <span class="msize-unit">מ"ר</span>
-      </div>`).join('');
-    return `
-      <div class="msize-list">${rows}</div>
-      <div class="msize-total" id="msize-total">סה"כ: 0 מ"ר</div>
-      <div class="msize-verdict ok" id="msize-verdict"></div>
-      <div class="btn-row mt-14">
-        <button class="btn primary" data-app-action="material-sizes-confirm">אשר שטחי גג ←</button>
       </div>`;
   }
   return '';
@@ -473,11 +484,6 @@ function updateMaterialSizes() {
   updateSimDock(readMaterialSizes());
 }
 
-function materialSizesConfirm() {
-  Wizard.answerMaterialSizes(readMaterialSizes());
-  renderWizard();
-}
-
 function wizardToggleObstacle(i) {
   Wizard.toggleObstacle(i);
   renderWizard(); // re-render updates the live sim dock with the new obstacle set
@@ -491,8 +497,36 @@ function wizardToggleRoof(i) {
   renderWizard();
 }
 
-function wizardConfirmRoofs() {
-  const result = Wizard.confirmRoofTypes();
+function eligibilityPick(qid, optionIndex) {
+  const row = document.querySelector(`.elig-row[data-qid="${qid}"]`);
+  if (!row) return;
+  row.querySelectorAll('.answer-btn').forEach((b, i) => b.classList.toggle('selected', i === optionIndex));
+}
+
+function readEligibilitySelections() {
+  const out = {};
+  document.querySelectorAll('.elig-row').forEach(row => {
+    const qid = row.dataset.qid;
+    const idx = Array.from(row.querySelectorAll('.answer-btn')).findIndex(b => b.classList.contains('selected'));
+    if (idx >= 0) out[qid] = idx;
+  });
+  return out;
+}
+
+function wizardConfirmEligibility() {
+  const result = Wizard.confirmEligibility(readEligibilitySelections());
+  if (!result.done && result.error) {
+    const errEl = document.getElementById('elig-error');
+    if (errEl) errEl.textContent = result.error;
+    return;
+  }
+  renderWizard();
+}
+
+function wizardConfirmRoofSizes() {
+  const sizesMap = {};
+  readMaterialSizes().forEach(s => { sizesMap[s.materialId] = s.size; });
+  const result = Wizard.confirmRoofTypesAndSizes(sizesMap);
   if (!result.done && result.error) {
     const errEl = document.getElementById('roof-multi-error');
     if (errEl) errEl.textContent = result.error;

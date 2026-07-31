@@ -321,23 +321,43 @@ const Wizard = (() => {
     }
   }
 
-  // Confirm multi-roof selection. Severity (stop/escalate/flag) is NOT decided
-  // here — it is computed once by evaluateRoof at the material-sizes step, which
-  // is the single source of truth. This just records the selection and advances.
-  function confirmRoofTypes() {
+  // Merged screen: roof-type selection + per-type size entry in one submission.
+  // Runs the same evaluateRoof single source of truth confirmRoofTypes/answerMaterialSizes
+  // used to run separately; this replaces both call sites.
+  function confirmRoofTypesAndSizes(sizesMap) {
     if (state.selectedRoofTypes.length === 0) return { done: false, error: 'בחר לפחות סוג גג אחד' };
     snapshot();
     const selected = state.selectedRoofTypes;
     const labels = selected.map(t => t.label).join(' + ');
     state.answers.push({
-      questionId: 'roof-type',
-      label: labels,
-      value: selected.map(t => t.value).join('+'),
-      flagClass: 'ok',
+      questionId: 'roof-type', label: labels,
+      value: selected.map(t => t.value).join('+'), flagClass: 'ok',
     });
 
+    const sizes = selected.map(t => ({ materialId: t.value, size: (sizesMap && sizesMap[t.value]) || 0 }));
+    const r = evaluateRoof(sizes, cfg());
+    state.materialSizes = sizes.filter(s => (parseInt(s.size) || 0) > 0);
+    const recap = r.perMaterial.map(p => `${p.label} ${p.size}מ"ר`).join(' + ');
+    const hasWarn = r.flags.length > 0 || r.perMaterial.some(p => p.outcome === 'warn');
+    state.answers.push({
+      questionId: 'material-sizes',
+      label: recap + (hasWarn ? ' ⚠️' : ' ✅'),
+      value: sizes.map(s => `${s.materialId}:${s.size}`).join(','),
+      flagClass: hasWarn ? 'warn' : 'ok',
+    });
+
+    if (r.outcome === 'stop') {
+      state.outcome = 'stop'; state.stopReason = r.stopReason; state.stopScript = r.stopScript;
+      return { done: true };
+    }
+    if (r.outcome === 'escalate') {
+      state.outcome = 'escalate'; state.escalateNote = r.escalateNote;
+      return { done: true };
+    }
+    r.flags.forEach(f => { if (f) state.flags.push(f); });
+
     state.step++;
-    const flow = buildFlow();
+    const flow = currentFlow();
     if (state.step >= flow.length) {
       state.outcome = state.flags.length > 0 ? 'go-notes' : 'go';
       return { done: true };
@@ -418,43 +438,6 @@ const Wizard = (() => {
     });
   }
 
-  // Submit per-material sizes: [{ materialId, size }]. Runs evaluateRoof (the
-  // single source of truth) and maps its outcome onto the wizard state machine.
-  function answerMaterialSizes(sizes) {
-    snapshot();
-    const r = evaluateRoof(sizes, cfg());
-    state.materialSizes = sizes.filter(s => (parseInt(s.size) || 0) > 0);
-    const recap = r.perMaterial.map(p => `${p.label} ${p.size}מ"ר`).join(' + ');
-    const hasWarn = r.flags.length > 0 || r.perMaterial.some(p => p.outcome === 'warn');
-    state.answers.push({
-      questionId: 'material-sizes',
-      label: recap + (hasWarn ? ' ⚠️' : ' ✅'),
-      value: sizes.map(s => `${s.materialId}:${s.size}`).join(','),
-      flagClass: hasWarn ? 'warn' : 'ok',
-    });
-
-    if (r.outcome === 'stop') {
-      state.outcome = 'stop';
-      state.stopReason = r.stopReason;
-      state.stopScript = r.stopScript;
-      return { done: true };
-    }
-    if (r.outcome === 'escalate') {
-      state.outcome = 'escalate';
-      state.escalateNote = r.escalateNote;
-      return { done: true };
-    }
-    r.flags.forEach(f => { if (f) state.flags.push(f); });
-
-    state.step++;
-    const flow = currentFlow();
-    if (state.step >= flow.length) {
-      state.outcome = state.flags.length > 0 ? 'go-notes' : 'go';
-      return { done: true };
-    }
-    return { done: false };
-  }
-
   // ---- shading obstacles (multi-select) ----
   function toggleObstacle(optionIndex) {
     const q = getQuestion('shading');
@@ -515,7 +498,8 @@ const Wizard = (() => {
     };
   }
 
-  return { reset, back, canBack, currentQuestion, currentFlow, answer, getState, getQuestionById, confirmEligibility, toggleRoofType, confirmRoofTypes, toggleObstacle, confirmObstacles, selectedMaterials, answerMaterialSizes, getSimInputs };
+  return { reset, back, canBack, currentQuestion, currentFlow, answer, getState, getQuestionById, confirmEligibility,
+    toggleRoofType, confirmRoofTypesAndSizes, toggleObstacle, confirmObstacles, selectedMaterials, getSimInputs };
 })();
 
 if (typeof module !== 'undefined' && module.exports) {

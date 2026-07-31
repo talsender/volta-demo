@@ -82,3 +82,23 @@ test('first blocking in fixed order wins — permit follow-up before connection 
   assert.strictEqual(r.done, true);
   assert.strictEqual(Wizard.getState().outcome, 'follow-up');
 });
+
+test('confirmRoofTypesAndSizes evaluates the merged screen in one call', () => {
+  Wizard.reset();
+  Wizard.confirmEligibility(ALL_OK);
+  Wizard.toggleRoofType(0); // first material in RoofStore/DEFAULT_ROOF_CONFIG — concrete, per config.js
+  const r = Wizard.confirmRoofTypesAndSizes({ concrete: 80 });
+  assert.strictEqual(r.done, false); // advances to roof-orientation
+  assert.strictEqual(Wizard.getState().materialSizes.length, 1);
+  const answers = Wizard.getState().answers;
+  assert.ok(answers.some(a => a.questionId === 'roof-type'));
+  assert.ok(answers.some(a => a.questionId === 'material-sizes'));
+});
+
+test('confirmRoofTypesAndSizes requires at least one roof type', () => {
+  Wizard.reset();
+  Wizard.confirmEligibility(ALL_OK);
+  const r = Wizard.confirmRoofTypesAndSizes({});
+  assert.strictEqual(r.done, false);
+  assert.ok(r.error);
+});
