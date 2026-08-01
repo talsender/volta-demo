@@ -800,6 +800,8 @@ function renderWizardResult() {
 // Roof-settings entry is now unified into the manager panel (admin.js); this
 // standalone dbl-click entry was removed to avoid a duplicate manager gesture.
 
+let _wizardTickerStarted = false;
+
 function tickWizardElapsed() {
   const s = Wizard.getState();
   const el = document.getElementById('wizard-elapsed');
@@ -814,7 +816,10 @@ function initWizard() {
   Wizard.reset();
   _roofSizeInputs = {};
   renderWizard();
-  setInterval(tickWizardElapsed, 1000);
+  if (!_wizardTickerStarted) {
+    _wizardTickerStarted = true;
+    setInterval(tickWizardElapsed, 1000);
+  }
 }
 
 let _dataLayerInitialized = false;
