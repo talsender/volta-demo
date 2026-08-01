@@ -1358,9 +1358,10 @@ function renderReferenceDrawer() {
       <div class="kb-note">${escHtml(e.note)}</div>
     </div>`).join('') : '';
   const offersHtml = offers.length ? offers.map(o => `
-    <div class="offering-card">
+    <div class="offering-card${o.eligible ? '' : ' dim'}">
       <div class="offering-head"><span class="offering-name">${escHtml(o.emoji)} ${escHtml(o.name)}</span>
         ${o.price ? `<span class="offering-price">${escHtml(fmtPrice(o.price))}</span>` : ''}</div>
+      ${o.eligible ? '' : `<div class="offering-meta"><span class="offering-chip warn">${escHtml(o.reason)}</span></div>`}
     </div>`).join('') : '';
   body.innerHTML = (kbHtml + offersHtml) || '<div class="kb-empty">אין הערות מיוחדות לסוג הגג שנבחר.</div>';
 }
