@@ -521,6 +521,12 @@ body {
   border-color: var(--cyan); background: rgba(54,230,212,0.08);
   box-shadow: 0 0 18px rgba(54,230,212,0.2); transform: translateY(-1px);
 }
+.answer-btn.selected {
+  background: rgba(54,230,212,0.14);
+  border-color: var(--cyan);
+  box-shadow: 0 0 0 1px var(--cyan), 0 0 22px rgba(54,230,212,0.4);
+  font-weight: 700;
+}
 
 .roof-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; margin-top: 8px; }
 .roof-btn {

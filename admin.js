@@ -499,7 +499,7 @@ const Admin = (() => {
       <input id="edit-password-${safeId}" class="login-input sm" type="password" placeholder="סיסמה חדשה (ריק = ללא שינוי)">
       <input id="edit-phone-${safeId}" class="login-input sm" maxlength="40" value="${escHtml(a.phone || '')}" placeholder="טלפון">
       <select id="edit-role-${safeId}" class="login-input sm">${roleOptions(a.role)}</select>
-      <label class="plan-access-label"><input type="checkbox" id="edit-can-plan-${safeId}"${a.canDetailedPlan ? ' checked' : ''}> תכנון מפורט (3D)</label>
+      <label class="plan-access-label"><input type="checkbox" id="edit-can-plan-${safeId}"${Auth.can(a, 'detailedPlanning') ? ' checked' : ''}> תכנון מפורט (3D)</label>
       <span class="ag-actions">
         <button class="btn primary sm" data-admin-action="save-edit" data-id="${idAttr}">שמור</button>
         <button class="btn reset sm" data-admin-action="cancel-edit">ביטול</button>
@@ -544,6 +544,7 @@ const Admin = (() => {
         email: fields.email.toLowerCase(),
         role: fields.role,
         firebaseAuthUid: uid,
+        canDetailedPlan: document.getElementById('new-agent-can-plan').checked,
       });
       ['new-agent-name', 'new-agent-email', 'new-agent-password', 'new-agent-phone'].forEach(id => {
         const el = document.getElementById(id); if (el) el.value = '';
@@ -567,6 +568,7 @@ const Admin = (() => {
       name: fields.name,
       email: fields.email.toLowerCase(),
       role: fields.role,
+      canDetailedPlan: document.getElementById('new-agent-can-plan').checked,
     });
     ['new-agent-name', 'new-agent-email', 'new-agent-password', 'new-agent-phone'].forEach(id => {
       const el = document.getElementById(id); if (el) el.value = '';
@@ -611,6 +613,7 @@ const Admin = (() => {
       email: fields.email.toLowerCase(),
       role: fields.role,
       passwordChanged: !!fields.password,
+      canDetailedPlan: fields.canDetailedPlan,
     });
   }
 

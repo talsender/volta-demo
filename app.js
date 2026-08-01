@@ -489,6 +489,7 @@ function updateMaterialSizes() {
   else if (sum >= border) { v.className = 'msize-verdict warn'; v.textContent = `⚠️ ${sum} מ"ר — גבולי, המומחה יאשר`; }
   else { v.className = 'msize-verdict bad'; v.textContent = `❌ ${sum} מ"ר — קטן מדי (מינימום ${border} מ"ר)`; }
   updateSimDock(readMaterialSizes());
+  renderReferenceDrawer();
 }
 
 function wizardToggleObstacle(i) {
@@ -833,7 +834,7 @@ function logWizardDurationIfNeeded() {
     actorId: agent.id, actorName: agent.name || '', actorRole: agent.role || '',
     details: { durationMs: Date.now() - s.startedAt, outcome: s.outcome },
     createdAt: Date.now(),
-  }).catch(() => {});
+  }).catch(e => console.warn('wizard duration log failed:', e));
 }
 
 function initWizard() {
@@ -1329,7 +1330,7 @@ function renderOfferings() {
 
 function relevantKbEntries(roofTypeIds) {
   if (!window.VOLTA_KB || !roofTypeIds.length) return [];
-  return window.VOLTA_KB.filter(e => roofTypeIds.some(id => (e.keywords || '').toLowerCase().includes(id)));
+  return window.VOLTA_KB.filter(e => (e.materialIds || []).some(id => roofTypeIds.includes(id)));
 }
 
 // Reuses the existing pure matcher (offerings.js) rather than re-deriving the
@@ -1337,7 +1338,9 @@ function relevantKbEntries(roofTypeIds) {
 // calls (app.js renderWizardResult, ~line 657).
 function relevantOfferings(roofTypeIds) {
   if (typeof Offerings === 'undefined' || !roofTypeIds.length) return [];
-  const total = (Wizard.getState().materialSizes || []).reduce((a, m) => a + (parseInt(m.size) || 0), 0);
+  const liveSizes = readMaterialSizes();
+  const sizes = liveSizes.length ? liveSizes : (Wizard.getState().materialSizes || []);
+  const total = sizes.reduce((a, m) => a + (parseInt(m.size) || 0), 0);
   return Offerings.matchForRoof(roofTypeIds, total);
 }
 

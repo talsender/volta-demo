@@ -9,8 +9,9 @@ const Audit = (() => {
     'agent.deactivate',
     'agent.delete',
     'roofConfig.update',
+    'wizard.duration',
   ];
-  const TARGET_TYPES = ['request', 'agent', 'roofConfig', 'settlementOverride'];
+  const TARGET_TYPES = ['request', 'agent', 'roofConfig', 'settlementOverride', 'wizardSession'];
 
   function buildEvent(actor, action, targetType, targetId, details, now) {
     if (!actor || !actor.id) throw new Error('actor required');

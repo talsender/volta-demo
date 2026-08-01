@@ -121,3 +121,21 @@ test('confirmRoofTypesAndSizes escalates for a material with baseAction escalate
   assert.strictEqual(Wizard.getState().outcome, 'escalate');
   assert.ok(Wizard.getState().escalateNote);
 });
+
+test('buildFlow inserts tiles-age AFTER roof-and-sizes, not at its index — toggling tiles must not yank the rep off the current screen', () => {
+  Wizard.reset();
+  Wizard.confirmEligibility(ALL_OK);
+  // still sitting on roof-and-sizes here (index into MAIN_FLOW hasn't advanced)
+  assert.strictEqual(Wizard.currentQuestion().id, 'roof-and-sizes');
+
+  const tilesIndex = require('../config.js').DEFAULT_ROOF_CONFIG.materials.findIndex(m => m.id === 'tiles');
+  assert.ok(tilesIndex >= 0, 'expected a tiles material in DEFAULT_ROOF_CONFIG');
+  Wizard.toggleRoofType(tilesIndex); // toggle tiles on, live, before confirming
+
+  // the flow recomputes (tiles-age now present) but the rep must still be on roof-and-sizes
+  assert.strictEqual(Wizard.currentQuestion().id, 'roof-and-sizes');
+
+  const r = Wizard.confirmRoofTypesAndSizes({ tiles: 80 });
+  assert.strictEqual(r.done, false); // advances into the flow, not an outcome yet
+  assert.strictEqual(Wizard.currentQuestion().id, 'tiles-age'); // next question after confirming
+});

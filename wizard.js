@@ -303,7 +303,7 @@ const Wizard = (() => {
     const hasTiles = state.selectedRoofTypes.some(t => t.value === 'tiles') ||
       state.answers.some(a => a.questionId === 'roof-type' && a.value === 'tiles');
     if (hasTiles) {
-      const idx = flow.indexOf('roof-and-sizes');
+      const idx = flow.indexOf('roof-and-sizes') + 1;
       flow.splice(idx, 0, 'tiles-age');
     }
     return flow;
