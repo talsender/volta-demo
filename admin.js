@@ -291,10 +291,9 @@ const Admin = (() => {
     const pane = document.getElementById('admin-audit');
     if (!pane) return;
     if (_ctx !== 'manager') { pane.innerHTML = ''; return; }
-    const metrics = (typeof CallMetrics !== 'undefined')
-      ? CallMetrics.aggregate(_auditLogs)
-      : { count: 0, medianMs: 0, avgMs: 0 };
-    const statsHtml = `<div class="call-metrics">
+    const statsHtml = (typeof CallMetrics === 'undefined') ? '' : (() => {
+      const metrics = CallMetrics.aggregate(_auditLogs);
+      return `<div class="call-metrics">
       <div class="cm-title">⏱ זמן שיחה (אשף כשירות גג)</div>
       <div class="cm-row">
         <span class="cm-stat"><b>${metrics.count}</b> שיחות נמדדו</span>
@@ -302,6 +301,7 @@ const Admin = (() => {
         <span class="cm-stat">ממוצע <b>${CallMetrics.fmtDuration(metrics.avgMs)}</b></span>
       </div>
     </div>`;
+    })();
     const list = _auditLogs
       .filter(e => e.action !== 'wizard.duration')
       .slice().sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).slice(0, 80);

@@ -836,6 +836,7 @@ function logWizardDurationIfNeeded() {
 function initWizard() {
   Wizard.reset();
   _roofSizeInputs = {};
+  _durationLogged = false;
   renderWizard();
   if (!_wizardTickerStarted) {
     _wizardTickerStarted = true;
