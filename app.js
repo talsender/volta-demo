@@ -175,6 +175,7 @@ function renderWizard() {
       window.VoltaGlobe.deploy();
     }
     setTimeout(() => updateSimDock(), 0); // dock reflects the final house
+    logWizardDurationIfNeeded();
     return;
   }
 
@@ -541,6 +542,7 @@ function wizardConfirmRoofSizes() {
 function resetWizard() {
   Wizard.reset();
   _roofSizeInputs = {};
+  _durationLogged = false;
   renderWizard();
 }
 
@@ -810,6 +812,25 @@ function tickWizardElapsed() {
   const mm = String(Math.floor(totalSec / 60)).padStart(2, '0');
   const ss = String(totalSec % 60).padStart(2, '0');
   el.textContent = mm + ':' + ss;
+}
+
+let _durationLogged = false;
+
+function logWizardDurationIfNeeded() {
+  if (_durationLogged) return;
+  const s = Wizard.getState();
+  if (!s.outcome || !s.startedAt) return;
+  const agent = Auth.getCurrentAgent();
+  if (!agent || !VoltaDB.ready() || !VoltaDB.addAuditEvent) return;
+  _durationLogged = true;
+  VoltaDB.addAuditEvent({
+    action: 'wizard.duration',
+    targetType: 'wizardSession',
+    targetId: '',
+    actorId: agent.id, actorName: agent.name || '', actorRole: agent.role || '',
+    details: { durationMs: Date.now() - s.startedAt, outcome: s.outcome },
+    createdAt: Date.now(),
+  }).catch(() => {});
 }
 
 function initWizard() {

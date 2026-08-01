@@ -291,12 +291,25 @@ const Admin = (() => {
     const pane = document.getElementById('admin-audit');
     if (!pane) return;
     if (_ctx !== 'manager') { pane.innerHTML = ''; return; }
-    const list = _auditLogs.slice().sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).slice(0, 80);
+    const metrics = (typeof CallMetrics !== 'undefined')
+      ? CallMetrics.aggregate(_auditLogs)
+      : { count: 0, medianMs: 0, avgMs: 0 };
+    const statsHtml = `<div class="call-metrics">
+      <div class="cm-title">⏱ זמן שיחה (אשף כשירות גג)</div>
+      <div class="cm-row">
+        <span class="cm-stat"><b>${metrics.count}</b> שיחות נמדדו</span>
+        <span class="cm-stat">חציון <b>${CallMetrics.fmtDuration(metrics.medianMs)}</b></span>
+        <span class="cm-stat">ממוצע <b>${CallMetrics.fmtDuration(metrics.avgMs)}</b></span>
+      </div>
+    </div>`;
+    const list = _auditLogs
+      .filter(e => e.action !== 'wizard.duration')
+      .slice().sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).slice(0, 80);
     if (!list.length) {
-      pane.innerHTML = '<div class="my-req-empty">אין אירועי audit עדיין.</div>';
+      pane.innerHTML = statsHtml + '<div class="my-req-empty">אין אירועי audit עדיין.</div>';
       return;
     }
-    pane.innerHTML = list.map(e => {
+    pane.innerHTML = statsHtml + list.map(e => {
       const details = e.details ? JSON.stringify(e.details) : '';
       return `<div class="audit-row">
         <div class="audit-head">
