@@ -144,6 +144,8 @@ function initAppDelegates() {
       recenterSim();
     } else if (action === 'toggle-sim-dock') {
       toggleSimDock();
+    } else if (action === 'toggle-ref-drawer') {
+      toggleReferenceDrawer();
     } else if (action === 'send-planning-handoff') {
       sendPlanningHandoff();
     } else if (action === 'attendance-punch') {
@@ -222,6 +224,7 @@ function renderWizard() {
     setTimeout(() => updateMaterialSizes(), 0);
   }
   setTimeout(() => updateSimDock(q && q.type === 'roof-and-sizes' ? readMaterialSizes() : null), 0);
+  renderReferenceDrawer();
 }
 
 // ============================================================
@@ -1322,6 +1325,49 @@ function renderOfferings() {
         ${o.note ? `<div class="kb-note">${escHtml(o.note)}</div>` : ''}
       </div>`).join('')}
   `).join('');
+}
+
+function relevantKbEntries(roofTypeIds) {
+  if (!window.VOLTA_KB || !roofTypeIds.length) return [];
+  return window.VOLTA_KB.filter(e => roofTypeIds.some(id => (e.keywords || '').toLowerCase().includes(id)));
+}
+
+// Reuses the existing pure matcher (offerings.js) rather than re-deriving the
+// appliesTo/minArea logic here — same function the wizard-result screen already
+// calls (app.js renderWizardResult, ~line 657).
+function relevantOfferings(roofTypeIds) {
+  if (typeof Offerings === 'undefined' || !roofTypeIds.length) return [];
+  const total = (Wizard.getState().materialSizes || []).reduce((a, m) => a + (parseInt(m.size) || 0), 0);
+  return Offerings.matchForRoof(roofTypeIds, total);
+}
+
+function renderReferenceDrawer() {
+  const body = document.getElementById('wizard-ref-body');
+  if (!body) return;
+  const s = Wizard.getState();
+  const roofTypeIds = (s.selectedRoofTypes || []).map(t => t.value);
+  const kb = relevantKbEntries(roofTypeIds);
+  const offers = relevantOfferings(roofTypeIds);
+  if (!roofTypeIds.length) {
+    body.innerHTML = '<div class="kb-empty">בחר סוג גג כדי לראות הערות ומחירים רלוונטיים כאן.</div>';
+    return;
+  }
+  const kbHtml = kb.length ? kb.map(e => `
+    <div class="kb-item ${e.verdict === 'no' ? 'no' : e.verdict === 'yes' ? 'yes' : 'check'}">
+      <div class="kb-item-head"><span class="kb-item-name">${escHtml(e.item)}</span></div>
+      <div class="kb-note">${escHtml(e.note)}</div>
+    </div>`).join('') : '';
+  const offersHtml = offers.length ? offers.map(o => `
+    <div class="offering-card">
+      <div class="offering-head"><span class="offering-name">${escHtml(o.emoji)} ${escHtml(o.name)}</span>
+        ${o.price ? `<span class="offering-price">${escHtml(fmtPrice(o.price))}</span>` : ''}</div>
+    </div>`).join('') : '';
+  body.innerHTML = (kbHtml + offersHtml) || '<div class="kb-empty">אין הערות מיוחדות לסוג הגג שנבחר.</div>';
+}
+
+function toggleReferenceDrawer() {
+  const d = document.getElementById('wizard-ref-drawer');
+  if (d) d.classList.toggle('collapsed');
 }
 
 function initKnowledgeBase() {

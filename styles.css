@@ -1376,3 +1376,8 @@ input[type=range]::-webkit-slider-thumb {
 .cm-row { display: flex; gap: 18px; flex-wrap: wrap; }
 .cm-stat { font-size: 13px; color: var(--text-dim); }
 .cm-stat b { color: var(--cyan-br); font-variant-numeric: tabular-nums; }
+
+.wizard-ref-drawer { margin-top: 16px; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.wref-toggle { all: unset; cursor: pointer; display: block; width: 100%; box-sizing: border-box; padding: 10px 14px; font-weight: 600; color: var(--cyan-br); }
+.wref-body { padding: 0 14px 14px; display: flex; flex-direction: column; gap: 10px; }
+.wizard-ref-drawer.collapsed .wref-body { display: none; }
