@@ -802,6 +802,7 @@ function renderWizardResult() {
 
 function initWizard() {
   Wizard.reset();
+  _roofSizeInputs = {};
   renderWizard();
 }
 
