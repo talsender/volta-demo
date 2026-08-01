@@ -186,7 +186,7 @@ function renderWizard() {
 
   let html = `
     <div class="progress-area">
-      <div class="progress-label"><span>שאלה ${current} מתוך ${total}</span><span>${pct}%</span></div>
+      <div class="progress-label"><span>שאלה ${current} מתוך ${total} · <span id="wizard-elapsed">00:00</span></span><span>${pct}%</span></div>
       <div class="progress-bar"><div class="progress-fill progress-${pctClass}"></div></div>
     </div>`;
 
@@ -800,10 +800,21 @@ function renderWizardResult() {
 // Roof-settings entry is now unified into the manager panel (admin.js); this
 // standalone dbl-click entry was removed to avoid a duplicate manager gesture.
 
+function tickWizardElapsed() {
+  const s = Wizard.getState();
+  const el = document.getElementById('wizard-elapsed');
+  if (!el || !s.startedAt) return;
+  const totalSec = Math.floor((Date.now() - s.startedAt) / 1000);
+  const mm = String(Math.floor(totalSec / 60)).padStart(2, '0');
+  const ss = String(totalSec % 60).padStart(2, '0');
+  el.textContent = mm + ':' + ss;
+}
+
 function initWizard() {
   Wizard.reset();
   _roofSizeInputs = {};
   renderWizard();
+  setInterval(tickWizardElapsed, 1000);
 }
 
 let _dataLayerInitialized = false;

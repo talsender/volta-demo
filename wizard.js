@@ -295,7 +295,7 @@ const Wizard = (() => {
   function reset() {
     history = [];
     state = { step: 0, answers: [], flags: [], outcome: null, stopReason: '', stopScript: '', escalateNote: '', followUpNote: '', selectedRoofTypes: [],
-      materialSizes: [], orientationAz: 180, shading: 'none', selectedObstacles: [], propertyType: 'private' };
+      materialSizes: [], orientationAz: 180, shading: 'none', selectedObstacles: [], propertyType: 'private', startedAt: Date.now() };
   }
 
   function buildFlow() {
